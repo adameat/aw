@@ -370,14 +370,16 @@ public:
         if (Env::HaveConsole && !Feed) {
             context.Send(this, &Console, new TEventData(StringStream() << "RCV " << context.Now.Seconds() << " " << ConnectAliveTime.Seconds() << " " << LastReportTime.Seconds()));
         }
-        if (LastReportTime + TTime::Minutes(5) < context.Now) {
-            Reset();
-        }
-        if (TTime::Hours(24) < context.Now) {
-            Reset();
-        }
-        if (ConnectAliveTime + TTime::Minutes(3) < context.Now) {
-            Reset();
+        if (!context.ActorLib.Sleeping) {
+            if (LastReportTime + TTime::Minutes(5) < context.Now) {
+                Reset();
+            }
+            if (TTime::Hours(24) < context.Now) {
+                Reset();
+            }
+            if (ConnectAliveTime + TTime::Minutes(3) < context.Now) {
+                Reset();
+            }
         }
         if (Feed) {
             //ConnectAliveTime = context.Now;

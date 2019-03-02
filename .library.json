@@ -1,0 +1,17 @@
+{
+    "name": "aw",
+    "keywords": "aw",
+    "description": "aw",
+    "authors":
+    {
+        "name": "xxx",
+        "url": "http://www.xenohome.com"
+    },
+    "version": "1.0",
+    "downloadUrl": "http://www.xenohome.com/aw.zip",
+    "export": {
+        "include": "aw"
+    },
+    "frameworks": "arduino",
+    "platforms": ["atmelavr", "atmelsam"]
+}
