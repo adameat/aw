@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-//#include <Wire.h>
+#include <Wire.h>
 #include "aw-string-buf.h"
 #include "aw-stream.h"
 #include "aw-average.h"
