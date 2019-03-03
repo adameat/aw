@@ -207,6 +207,9 @@ public:
     }
 
 protected:
+    CalibData Calib;
+    TTime CalibLastUpdate;
+
     void OnEvent(TEventPtr event, const TActorContext& context) override {
         switch (event->EventID) {
         case TEventBootstrap::EventID:
@@ -317,8 +320,10 @@ protected:
         if (Env::Wire::ReadValue(Address, ERegisters::REGISTER_STATUS, status)) {
             if ((status & 1) == 0) {
                 Updated = context.Now;
-                CalibData calib;
-                ReadCoefficients(calib);
+                if (context.Now - CalibLastUpdate > TTime::Minutes(1)) {
+                    ReadCoefficients(Calib);
+                    CalibLastUpdate = context.Now;
+                }
                 int32_t t_fine = 0;
                 uint24_t temp;
                 if (Env::Wire::ReadValueLE(Address, ERegisters::REGISTER_TEMPDATA, temp) && temp != 0x800000) {
@@ -326,12 +331,12 @@ protected:
                     int32_t adc_T = temp;
                     adc_T >>= 4;
 
-                    var1 = ((((adc_T >> 3) - ((int32_t)calib.dig_T1 << 1))) *
-                        ((int32_t)calib.dig_T2)) >> 11;
+                    var1 = ((((adc_T >> 3) - ((int32_t)Calib.dig_T1 << 1))) *
+                        ((int32_t)Calib.dig_T2)) >> 11;
 
-                    var2 = (((((adc_T >> 4) - ((int32_t)calib.dig_T1)) *
-                        ((adc_T >> 4) - ((int32_t)calib.dig_T1))) >> 12) *
-                        ((int32_t)calib.dig_T3)) >> 14;
+                    var2 = (((((adc_T >> 4) - ((int32_t)Calib.dig_T1)) *
+                        ((adc_T >> 4) - ((int32_t)Calib.dig_T1))) >> 12) *
+                        ((int32_t)Calib.dig_T3)) >> 14;
 
                     t_fine = var1 + var2;
 
@@ -348,20 +353,20 @@ protected:
                     adc_P >>= 4;
 
                     var1 = ((int64_t)t_fine) - 128000;
-                    var2 = var1 * var1 * (int64_t)calib.dig_P6;
-                    var2 = var2 + ((var1*(int64_t)calib.dig_P5) << 17);
-                    var2 = var2 + (((int64_t)calib.dig_P4) << 35);
-                    var1 = ((var1 * var1 * (int64_t)calib.dig_P3) >> 8) +
-                        ((var1 * (int64_t)calib.dig_P2) << 12);
-                    var1 = (((((int64_t)1) << 47) + var1))*((int64_t)calib.dig_P1) >> 33;
+                    var2 = var1 * var1 * (int64_t)Calib.dig_P6;
+                    var2 = var2 + ((var1*(int64_t)Calib.dig_P5) << 17);
+                    var2 = var2 + (((int64_t)Calib.dig_P4) << 35);
+                    var1 = ((var1 * var1 * (int64_t)Calib.dig_P3) >> 8) +
+                        ((var1 * (int64_t)Calib.dig_P2) << 12);
+                    var1 = (((((int64_t)1) << 47) + var1))*((int64_t)Calib.dig_P1) >> 33;
 
                     if (var1 != 0) {
                         p = 1048576 - adc_P;
                         p = (((p << 31) - var2) * 3125) / var1;
-                        var1 = (((int64_t)calib.dig_P9) * (p >> 13) * (p >> 13)) >> 25;
-                        var2 = (((int64_t)calib.dig_P8) * p) >> 19;
+                        var1 = (((int64_t)Calib.dig_P9) * (p >> 13) * (p >> 13)) >> 25;
+                        var2 = (((int64_t)Calib.dig_P8) * p) >> 19;
 
-                        p = ((p + var1 + var2) >> 8) + (((int64_t)calib.dig_P7) << 4);
+                        p = ((p + var1 + var2) >> 8) + (((int64_t)Calib.dig_P7) << 4);
                         float P = (float)p / 256;
                         Pressure.Value = P / 133.32239; // to mmHg
                         if (Env::SensorsSendValues) {
@@ -377,14 +382,14 @@ protected:
 
                         v_x1_u32r = (t_fine - ((int32_t)76800));
 
-                        v_x1_u32r = (((((adc_H << 14) - (((int32_t)calib.dig_H4) << 20) -
-                            (((int32_t)calib.dig_H5) * v_x1_u32r)) + ((int32_t)16384)) >> 15) *
-                            (((((((v_x1_u32r * ((int32_t)calib.dig_H6)) >> 10) *
-                            (((v_x1_u32r * ((int32_t)calib.dig_H3)) >> 11) + ((int32_t)32768))) >> 10) +
-                                ((int32_t)2097152)) * ((int32_t)calib.dig_H2) + 8192) >> 14));
+                        v_x1_u32r = (((((adc_H << 14) - (((int32_t)Calib.dig_H4) << 20) -
+                            (((int32_t)Calib.dig_H5) * v_x1_u32r)) + ((int32_t)16384)) >> 15) *
+                            (((((((v_x1_u32r * ((int32_t)Calib.dig_H6)) >> 10) *
+                            (((v_x1_u32r * ((int32_t)Calib.dig_H3)) >> 11) + ((int32_t)32768))) >> 10) +
+                                ((int32_t)2097152)) * ((int32_t)Calib.dig_H2) + 8192) >> 14));
 
                         v_x1_u32r = (v_x1_u32r - (((((v_x1_u32r >> 15) * (v_x1_u32r >> 15)) >> 7) *
-                            ((int32_t)calib.dig_H1)) >> 4));
+                            ((int32_t)Calib.dig_H1)) >> 4));
 
                         v_x1_u32r = (v_x1_u32r < 0) ? 0 : v_x1_u32r;
                         v_x1_u32r = (v_x1_u32r > 419430400) ? 419430400 : v_x1_u32r;

@@ -223,9 +223,6 @@ protected:
 
     void OnReceive(TUniquePtr<TEventReceive> event, const TActorContext& context) {
         context.Resend(this, event.Release());
-        if (context.ActorLib.Sleeping) {
-            return;
-        }
         String::size_type size = (String::size_type)min(Port.AvailableForRead(), (MaxBufferSize - Buffer.size()));
         if (size > 0) {
             String::size_type strStart = 0;

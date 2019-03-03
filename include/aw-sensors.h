@@ -15,6 +15,10 @@ public:
         : Value(NAN)
     {}
 
+    TOptionalValue(double value)
+        : Value(value)
+    {}
+
     void SetValue(double value) {
         Value = value;
     }
@@ -46,6 +50,13 @@ protected:
 struct TSensorValue {
     StringBuf Name;
     TOptionalValue Value;
+
+    TSensorValue() = default;
+
+    TSensorValue(StringBuf name, TOptionalValue value = TOptionalValue())
+        : Name(name)
+        , Value(value)
+    {}
 
     bool operator ==(const TSensorValue& other) const {
         return this == &other;
@@ -212,6 +223,10 @@ public:
         TimeBusy.Value.SetValue(context.ActorLib.BusyTime.MilliSeconds());
         TimeSleep.Value.SetValue(context.ActorLib.SleepTime.MilliSeconds());
         SendSensorValues(context, TimeSource, TimeTotal, TimeBusy, TimeSleep);
+    }
+
+    void SendSensors(const TActorContext& context) {
+        OnSendSensors(context);
         LastReportTime = context.Now;
     }
 
@@ -290,7 +305,7 @@ public:
                 Period = DefaultPeriod;
             }
         } else if (data == "READ") {
-            OnSendSensors(context);
+            SendSensors(context);
             context.Send(this, &Channel, new TEventData("DONE"));
         } else if (data == "STOP") {
             Feed = false;
@@ -310,37 +325,41 @@ public:
         Led = false;
     }
 
-    void SendSensorValue(const TSensorSource& source, TSensorValue& value, const TActorContext& context) {
+    void SendSensorValue(const TActorContext& context, StringBuf sourceName, StringBuf valueName, double value) {
+        StringStream stream;
+        stream << "DATA " << sourceName << '.' << valueName << ' ' << value << " OK";
+        if (Env::UseSum) {
+            auto size = stream.size();
+            stream << ' ' << size;
+        }
+        if (Env::UseCRC16) {
+            String crc16(stream.str().crc16(), 16);
+            stream << ' ';
+            for (auto i = crc16.size(); i < 4; ++i) {
+                stream << '0';
+            }
+            stream << crc16;
+        }
+        context.Send(this, &Channel, new TEventData(stream));
+    }
+
+    void SendSensorValue(const TSensorSource& source, const TSensorValue& value, const TActorContext& context) {
         if (source.Updated >= LastReportTime && value.Value.IsValid()) {
-            StringStream stream;
-            stream << "DATA " << source.Name << '.' << value.Name << ' ' << value.Value << " OK";
-            if (Env::UseSum) {
-                auto size = stream.size();
-                stream << ' ' << size;
-            }
-            if (Env::UseCRC16) {
-                String crc16(stream.str().crc16(), 16);
-                stream << ' ';
-                for (auto i = crc16.size(); i < 4; ++i) {
-                    stream << '0';
-                }
-                stream << crc16;
-            }
-            context.Send(this, &Channel, new TEventData(stream));
+            SendSensorValue(context, source.Name, value.Name, value.Value);
         }
     }
 
     template <size_t Count>
-    void SendSensors(TSensor<Count>& sensor, const TActorContext& context) {
-        for (TSensorValue& value : sensor.Values) {
+    void SendSensors(const TSensor<Count>& sensor, const TActorContext& context) {
+        for (const TSensorValue& value : sensor.Values) {
             SendSensorValue(sensor, value, context);
         }
     }
 
-    void SendSensorValues(const TActorContext&, TSensorSource&) {}
+    void SendSensorValues(const TActorContext&, const TSensorSource&) {}
 
     template <typename SensorValue, typename... SensorValues>
-    void SendSensorValues(const TActorContext& context, TSensorSource& sensor, SensorValue& value, SensorValues&... values) {
+    void SendSensorValues(const TActorContext& context, const TSensorSource& sensor, const SensorValue& value, const SensorValues&... values) {
         SendSensorValue(sensor, value, context);
         SendSensorValues(context, sensor, values...);
     }
@@ -387,7 +406,7 @@ public:
         }
         if (Feed) {
             //ConnectAliveTime = context.Now;
-            OnSendSensors(context);
+            SendSensors(context);
         } else {
             if (!Connected && !context.ActorLib.Sleeping) {
                 context.Send(this, &Channel, new TEventData("AT"));

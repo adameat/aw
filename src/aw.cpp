@@ -75,7 +75,9 @@ void TActorLib::Run() {
                 minSleep = TTime::Zero();
                 TTime start = TTime::Now();
                 itActor->OnEvent(event, context);
-                BusyTime += TTime::Now() - start;
+                TTime spent = TTime::Now() - start;
+                itActor->BusyTime += spent;
+                BusyTime += spent;
                 if (itEvent != events.begin())
                     break;
             }
@@ -106,7 +108,9 @@ void TActorLib::SendSync(TActor* recipient, TEventPtr event) {
     Watchdog.reset();
     TTime start = TTime::Now();
     recipient->OnEvent(event, context);
-    BusyTime += TTime::Now() - start;
+    TTime spent = TTime::Now() - start;
+    recipient->BusyTime += spent;
+    BusyTime += spent;
 }
 
 void TActorLib::Resend(TActor* recipient, TEventPtr event) {

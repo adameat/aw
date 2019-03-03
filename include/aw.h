@@ -106,6 +106,7 @@ class TActor {
 public:
     friend class TActorLib;
     TActor* NextActor = nullptr;
+    TTime BusyTime;
     TList<TEventPtr> Events;
 
     virtual void OnEvent(TEventPtr event, const TActorContext& context) = 0;
