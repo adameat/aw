@@ -155,13 +155,16 @@ public:
     TSensorValue TimeTotal;
     TSensorValue TimeBusy;
     TSensorValue TimeSleep;
+    TActorLib* ActorLib;
 
     TSensorActor()
         : TConsoleActor<Env>(this)
         , Channel(this)
         , Bluetooth(this, &Channel)
         , PowerBluetooth(8)
-        , PowerI2C(9) {
+        , PowerI2C(9)
+        , ActorLib(nullptr)
+    {
         Led = true;
         PowerI2C = true;
         PowerBluetooth = true;
@@ -235,6 +238,7 @@ public:
     }
 
     void SensorBootstrap(TUniquePtr<TEventBootstrap> event, const TActorContext& context) {
+        ActorLib = &context.ActorLib;
         Led = true;
         if (Env::HaveConsole) {
             context.ActorLib.Register(&Console);
@@ -292,7 +296,7 @@ public:
             Feed = false;
             Period = DefaultPeriod;
         } else if (data == "RESET") {
-            Reset();
+            Reset("Reset by command");
         } else if (data.starts_with("BT")) {
             StringBuf command(data);
             command.NextToken(' ');
@@ -372,13 +376,13 @@ public:
         }
         if (!context.ActorLib.Sleeping) {
             if (LastReportTime + TTime::Minutes(5) < context.Now) {
-                Reset();
+                Reset("Reset by 5 minutes without data");
             }
             if (TTime::Hours(24) < context.Now) {
-                Reset();
+                Reset("Reset by 24 hours");
             }
             if (ConnectAliveTime + TTime::Minutes(3) < context.Now) {
-                Reset();
+                Reset("Reset by 3 minutes without connect");
             }
         }
         if (Feed) {
@@ -396,7 +400,10 @@ public:
         Led = false;
     }
 
-    void Reset() {
+    void Reset(StringBuf reason) {
+        if (Env::HaveConsole) {
+            ActorLib->SendSync(&Console, new TEventData(reason));
+        }
         PowerI2C = false;
         PowerBluetooth = false;
         for (int i = 0; i < 15; ++i) {
