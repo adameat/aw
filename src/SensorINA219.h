@@ -2,6 +2,8 @@
 
 #include "aw.h"
 
+extern Uart ConsoleSerial;
+
 namespace AW {
 
 template <typename Env = TDefaultEnvironment>
@@ -115,6 +117,7 @@ protected:
         EFlags::INA219_CONFIG_GAIN_1_40MV |
         EFlags::INA219_CONFIG_BADCRES_12BIT |
         EFlags::INA219_CONFIG_SADCRES_12BIT_128S_69MS |
+        //EFlags::INA219_CONFIG_MODE_SANDBVOLT_TRIGGERED;
         EFlags::INA219_CONFIG_MODE_SANDBVOLT_CONTINUOUS;
 
     void OnBootstrap(TUniquePtr<TEventBootstrap>, const TActorContext& context) {
@@ -134,8 +137,25 @@ protected:
         }
     }
 
+    enum class EStage {
+        Shot,
+        Data,
+    };
+
+    EStage Stage = EStage::Shot;
+    static constexpr TTime GetShotPeriod() { return TTime::MilliSeconds(100); }
+
     void OnReceive(AW::TUniquePtr<AW::TEventReceive> event, const AW::TActorContext& context) {
-        event->NotBefore = context.Now + Env::SensorsPeriod;
+        if (Stage == EStage::Shot) {
+            Stage = EStage::Data;
+            event->NotBefore = context.Now + GetShotPeriod();
+            context.Resend(this, event.Release());
+            Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CONFIG, ConfigValue);
+            return;
+        }
+
+        Stage = EStage::Shot;
+        event->NotBefore = context.Now + Env::SensorsPeriod - GetShotPeriod();
         context.Resend(this, event.Release());
 
         uint16_t config_value = 0; // INA219_REG_CONFIG
@@ -151,13 +171,13 @@ protected:
             context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "config " << String(config_value, 16)));
         }
 
-        if (config_value != ConfigValue) {
+        /*if (config_value != ConfigValue) {
             config_value = ConfigValue;
             Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CONFIG, ConfigValue);
             if (Env::Diagnostics) {
                 context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "replaced config to " << String(config_value, 16)));
             }
-        }
+        }*/
 
         static constexpr float RSHUNT = 0.1; // ohms
         static constexpr float shuntLSB = 0.010; // mV
@@ -250,13 +270,17 @@ protected:
                 float currentValue = shuntValue / RSHUNT;
                 Current = currentValue;
                 Power = busValue * currentValue;
+                if (Env::HaveConsole) {
+                    ConsoleSerial.print(currentValue);
+                    ConsoleSerial.print("\t");
+                    ConsoleSerial.println(Current.Value);
+                }
             }
         }
 
-        /*Wire.BeginTransmission(Address);
-        Wire.Write(ERegisters::INA219_REG_CONFIG);
-        Wire.Write(EFlags::INA219_CONFIG_MODE_POWERDOWN);
-        Wire.EndTransmission();*/
+        uint16_t configValue = EFlags::INA219_CONFIG_MODE_POWERDOWN;
+
+        Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CONFIG, configValue);
 
         Updated = context.Now;
 

@@ -4,7 +4,7 @@
 inline void* operator new(size_t size) {
 	void* r = malloc(size);
 	if (r == nullptr) {
-		AW::Reset();
+		AW::Reset("Memory");
 	}
 	return r;
 }

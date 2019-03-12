@@ -9,6 +9,7 @@ public:
     }
 
     constexpr bool operator ==(TTime time) const { return Value == time.Value; }
+    constexpr bool operator !=(TTime time) const { return Value != time.Value; }
     constexpr bool operator <(TTime time) const { return Value < time.Value; }
     constexpr bool operator <=(TTime time) const { return Value <= time.Value; }
     constexpr bool operator >(TTime time) const { return Value > time.Value; }

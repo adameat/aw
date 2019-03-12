@@ -45,6 +45,11 @@ public:
         , End(ptr.begin + ptr.length)
     {}
 
+    StringBuf(const char* ptr)
+        : Begin(ptr)
+        , End(ptr + static_cast<size_type>(strlen(ptr)))
+    {}
+
     constexpr StringBuf()
         : Begin(nullptr)
         , End(nullptr) {}
@@ -662,7 +667,7 @@ protected:
 //    StringChain()
 //        : Head(nullptr)
 //    {}
-//        
+//
 //    StringChain& operator <<(StringBuf string) {
 //        if (Head == nullptr) {
 //            Head = new TStringLink(string);

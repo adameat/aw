@@ -210,12 +210,22 @@ protected:
     CalibData Calib;
     TTime CalibLastUpdate;
 
+    sensor_sampling tempSampling = SAMPLING_X4;
+    sensor_sampling pressSampling = SAMPLING_X4;
+    sensor_sampling humSampling = SAMPLING_X4;
+    sensor_filter filter = FILTER_OFF;
+    standby_duration duration = STANDBY_MS_1000;
+
     void OnEvent(TEventPtr event, const TActorContext& context) override {
         switch (event->EventID) {
         case TEventBootstrap::EventID:
             return OnBootstrap(static_cast<TEventBootstrap*>(event.Release()), context);
         case TEventReceive::EventID:
             return OnReceive(static_cast<TEventReceive*>(event.Release()), context);
+        case TEventSleep::EventID:
+            return OnSleep(static_cast<TEventSleep*>(event.Release()), context);
+        case TEventWakeUp::EventID:
+            return OnWakeUp(static_cast<TEventWakeUp*>(event.Release()), context);
         default:
             break;
         }
@@ -239,11 +249,7 @@ protected:
 
             if (ChipID == EChips::BME280) {
                 sensor_mode mode = MODE_NORMAL;
-                sensor_sampling tempSampling = SAMPLING_X16;
-                sensor_sampling pressSampling = SAMPLING_X16;
-                sensor_sampling humSampling = SAMPLING_X16;
-                sensor_filter filter = FILTER_OFF;
-                standby_duration duration = STANDBY_MS_0_5;
+
                 config _configReg;
                 ctrl_meas _measReg;
                 ctrl_hum _humReg;
@@ -284,6 +290,24 @@ protected:
                 context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "NO BMx280 found"));
             }
         }
+    }
+
+    void OnSleep(AW::TUniquePtr<AW::TEventSleep> event, const AW::TActorContext& context) {
+        /*sensor_mode mode = MODE_SLEEP;
+        ctrl_meas _measReg;
+        _measReg.mode = mode;
+        _measReg.osrs_t = tempSampling;
+        _measReg.osrs_p = pressSampling;
+        Env::Wire::WriteValue(Address, REGISTER_CONTROL, _measReg.get());*/
+    }
+
+    void OnWakeUp(AW::TUniquePtr<AW::TEventWakeUp> event, const AW::TActorContext& context) {
+        /*sensor_mode mode = MODE_NORMAL;
+        ctrl_meas _measReg;
+        _measReg.mode = mode;
+        _measReg.osrs_t = tempSampling;
+        _measReg.osrs_p = pressSampling;
+        Env::Wire::WriteValue(Address, REGISTER_CONTROL, _measReg.get());*/
     }
 
     void ReadCoefficients(CalibData& data) {

@@ -8,10 +8,10 @@ struct TUniquePtr {
         : Ptr(ptr) {
     }
 
-    TUniquePtr(TUniquePtr<Type>& ptr) {
+    /*TUniquePtr(TUniquePtr<Type>& ptr) {
         Ptr = ptr.Ptr;
         ptr.Ptr = nullptr;
-    }
+    }*/
 
     TUniquePtr(TUniquePtr<Type>&& ptr) {
         Ptr = ptr.Ptr;
@@ -20,9 +20,10 @@ struct TUniquePtr {
 
     ~TUniquePtr() {
         delete Ptr;
+        Ptr = (Type*)(-2);
     }
 
-    TUniquePtr<Type>& operator =(Type* ptr) {
+    /*TUniquePtr<Type>& operator =(Type* ptr) {
         delete Ptr;
         Ptr = ptr;
         return *this;
@@ -33,7 +34,7 @@ struct TUniquePtr {
         Ptr = ptr.Ptr;
         ptr.Ptr = nullptr;
         return *this;
-    }
+    }*/
 
     TUniquePtr<Type>& operator =(TUniquePtr<Type>&& ptr) {
         delete Ptr;

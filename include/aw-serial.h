@@ -4,30 +4,40 @@
 
 namespace AW {
 
-#ifdef ARDUINO_ARCH_STM32F1
-template <USBSerial& Port, long Baud>
-class TUSBSerial {
+template <typename PortType, PortType& Port, long Baud>
+class TBasicSerial {
 public:
     static void Begin() {
         Port.begin(Baud);
     }
 
     static int AvailableForRead() {
-        //return min((int)Port.available(), 1);
         return (int)Port.available();
     }
 
     static int AvailableForWrite() {
-        //return min(Port.availableForWrite(), 1);
         return Port.availableForWrite();
     }
 
     static int Write(const char* buffer, int length) {
-        return Port.write(reinterpret_cast<const uint8*>(buffer), length);
+        return Port.write(buffer, length);
     }
 
     static int Read(char* buffer, int length) {
         return Port.readBytes(buffer, length);
+    }
+
+    static void Flush() {
+        Port.flush();
+    }
+
+    static void SkipAll() {
+        int size = AvailableForRead();
+        while (size > 0) {
+            char dummy;
+            Read(&dummy, 1);
+            --size;
+        }
     }
 
     static constexpr long GetBaud() {
@@ -35,124 +45,36 @@ public:
     }
 };
 
-template <HardwareSerial& Port, long Baud>
-class THardwareSerial {
+#ifdef ARDUINO_ARCH_STM32F1
+template <USBSerial& Port, long Baud>
+class TUSBSerial : public TBasicSerial<USBSerial, Port, Baud> {
 public:
-    static void Begin() {
-        Port.begin(Baud);
-    }
-
-    static int AvailableForRead() {
-        //return min((int)Port.available(), 1);
-        return (int)Port.available();
-    }
-
-    static int AvailableForWrite() {
-        //return min(Port.availableForWrite(), 1);
-        return Port.availableForWrite();
-    }
-
     static int Write(const char* buffer, int length) {
         return Port.write(reinterpret_cast<const uint8*>(buffer), length);
     }
+};
 
-    static int Read(char* buffer, int length) {
-        return Port.readBytes(buffer, length);
-    }
-
-    static constexpr long GetBaud() {
-        return Baud;
+template <HardwareSerial& Port, long Baud>
+class THardwareSerial : public TBasicSerial<HardwareSerial, Port, Baud> {
+public:
+    static int Write(const char* buffer, int length) {
+        return Port.write(reinterpret_cast<const uint8*>(buffer), length);
     }
 };
 #elif ARDUINO_ARCH_SAMD
 template <Serial_& Port, long Baud>
-class TUSBSerial {
+class TUSBSerial : public TBasicSerial<Serial_, Port, Baud> {
 public:
-    static void Begin() {
-        Port.begin(Baud);
-    }
-
-    static int AvailableForRead() {
-        //return min((int)Port.available(), 1);
-        return (int)Port.available();
-    }
-
-    static int AvailableForWrite() {
-        //return min(Port.availableForWrite(), 1);
-        return Port.availableForWrite();
-    }
-
-    static int Write(const char* buffer, int length) {
-        return Port.write(buffer, length);
-    }
-
-    static int Read(char* buffer, int length) {
-        return Port.readBytes(buffer, length);
-    }
-
-    static constexpr long GetBaud() {
-        return Baud;
-    }
 };
 
 template <Uart& Port, long Baud>
-class THardwareSerial {
+class THardwareSerial : public TBasicSerial<Uart, Port, Baud> {
 public:
-    static void Begin() {
-        Port.begin(Baud);
-    }
-
-    static int AvailableForRead() {
-        //return min((int)Port.available(), 1);
-        return (int)Port.available();
-    }
-
-    static int AvailableForWrite() {
-        //return min(Port.availableForWrite(), 1);
-        return Port.availableForWrite();
-    }
-
-    static int Write(const char* buffer, int length) {
-        return Port.write(buffer, length);
-    }
-
-    static int Read(char* buffer, int length) {
-        return Port.readBytes(buffer, length);
-    }
-
-    static constexpr long GetBaud() {
-        return Baud;
-    }
 };
 #else
 template <HardwareSerial& Port, long Baud>
-class THardwareSerial {
+class THardwareSerial : public TBasicSerial<HardwareSerial, Port, Baud> {
 public:
-    static void Begin() {
-        Port.begin(Baud);
-    }
-
-    static int AvailableForRead() {
-        //return min((int)Port.available(), 1);
-        return (int)Port.available();
-    }
-
-    static int AvailableForWrite() {
-        //return min(Port.availableForWrite(), 1);
-        return Port.availableForWrite();
-    }
-
-    static int Write(const char* buffer, int length) {
-        return Port.write(buffer, length);
-    }
-
-    static int Read(char* buffer, int length) {
-        return Port.readBytes(buffer, length);
-    }
-
-    static constexpr long GetBaud() {
-        return Baud;
-    }
 };
 #ifndef Serial1
 #define Serial1 Serial
@@ -187,6 +109,8 @@ protected:
             return OnData(static_cast<TEventDataArray*>(event.Release()), context);*/
         case TEventReceive::EventID:
             return OnReceive(static_cast<TEventReceive*>(event.Release()), context);
+        case TEventSleep::EventID:
+            return OnSleep(static_cast<TEventSleep*>(event.Release()), context);
         case TEventWakeUp::EventID:
             return OnWakeUp(static_cast<TEventWakeUp*>(event.Release()), context);
         default:
@@ -221,7 +145,14 @@ protected:
         context.ResendImmediate(this, event.Release());
     }
 
+    bool Sleeping = false;
+
     void OnReceive(TUniquePtr<TEventReceive> event, const TActorContext& context) {
+        // TODO: disable for sleep
+        if (context.ActorLib.Sleeping) {
+            Sleeping = true;
+            return;
+        }
         context.Resend(this, event.Release());
         String::size_type size = (String::size_type)min(Port.AvailableForRead(), (MaxBufferSize - Buffer.size()));
         if (size > 0) {
@@ -251,8 +182,17 @@ protected:
         //context.ResendAfter(this, event.Release(), GetSafeIdleTime());
     }
 
-    void OnWakeUp(TUniquePtr<TEventWakeUp>, const TActorContext&) {
+    void OnSleep(TUniquePtr<TEventSleep>, const TActorContext& context) {
+        Port.Flush();
+    }
+
+    void OnWakeUp(TUniquePtr<TEventWakeUp>, const TActorContext& context) {
         Buffer.clear();
+        Port.SkipAll();
+        if (Sleeping) {
+            context.Send(this, this, new TEventReceive);
+            Sleeping = false;
+        }
     }
 };
 
@@ -270,16 +210,16 @@ protected:
         case TEventData::EventID:
             return OnData(static_cast<TEventData*>(event.Release()), context);
         default:
-            return TBase::OnEvent(event, context);
+            return TBase::OnEvent(Move(event), context);
         }
     }
 
     void OnSend(TEventPtr event, const TActorContext& context) override {
         switch (event->EventID) {
         case TEventData::EventID:
-            return context.ActorLib.SendSync(this, event);
+            return context.ActorLib.SendSync(this, Move(event));
         default:
-            return TBase::OnSend(event, context);
+            return TBase::OnSend(Move(event), context);
         }
     }
 

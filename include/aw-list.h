@@ -1,5 +1,7 @@
 #pragma once
 
+#include "aw-debug.h"
+
 namespace AW {
 
 template <typename ItemType>
@@ -77,11 +79,11 @@ public:
     }
 
     Iterator push_back(TItemType item) {
-        return insert(end(), item);
+        return insert(end(), Move(item));
     }
 
     Iterator push_front(TItemType item) {
-        return insert(begin(), item);
+        return insert(begin(), Move(item));
     }
 
     Iterator pop_front() {
@@ -90,17 +92,20 @@ public:
 
     TItemType pop_value(Iterator& it) {
         if (it == begin()) {
-            TItemType value(Begin);
-            it = (Begin = value->Next).Get();
-            return value;
+            TItemType oldBegin(Move(Begin));
+            VERIFY(Begin.Get() == nullptr);
+            it = (Begin = Move(oldBegin->Next)).Get();
+            VERIFY(oldBegin->Next.Get() == nullptr);
+            return oldBegin;
         } else {
             Iterator next = begin();
             while (next != end()) {
                 Iterator prev = next++;
                 if (next == it) {
-                    TItemType value(prev.Get()->Next);
-                    it = (prev.Get()->Next = value->Next).Get();
-                    value->Next = nullptr;
+                    TItemType value(Move(prev.Get()->Next));
+                    VERIFY(prev.Get()->Next.Get() == nullptr);
+                    it = (prev.Get()->Next = Move(value->Next)).Get();
+                    VERIFY(value->Next.Get() == nullptr);
                     return value;
                 }
             }
@@ -110,14 +115,14 @@ public:
 
     Iterator erase(Iterator it) {
         if (it == begin()) {
-            Begin = Begin->Next;
+            Begin = Move(Begin->Next);
             return Begin.Get();
         } else {
             Iterator next = begin();
             while (next != end()) {
                 Iterator prev = next++;
                 if (next == it) {
-                    return (prev.Get()->Next = next.Get()->Next).Get();
+                    return (prev.Get()->Next = Move(next.Get()->Next)).Get();
                 }
             }
         }
@@ -126,16 +131,17 @@ public:
 
     Iterator insert(Iterator it, TItemType item) {
         if (it == begin()) {
-            item->Next = Begin;
-            Begin = item;
+            item->Next = Move(Begin);
+            VERIFY(Begin.Get() == nullptr);
+            Begin = Move(item);
             return begin();
         } else {
             Iterator next = begin();
             while (next != end()) {
                 Iterator prev = next++;
                 if (next == it) {
-                    item->Next = prev.Get()->Next;
-                    prev.Get()->Next = item;
+                    item->Next = Move(prev.Get()->Next);
+                    prev.Get()->Next = Move(item);
                     return prev.Get()->Next.Get();
                 }
             }

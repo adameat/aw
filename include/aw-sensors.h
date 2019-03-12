@@ -7,6 +7,8 @@
 #include "aw-string-buf.h"
 #include "aw-time.h"
 
+extern Uart ConsoleSerial;
+
 namespace AW {
 
 class TOptionalValue {
@@ -234,30 +236,34 @@ public:
         if (Env::Diagnostics && Env::HaveConsole) {
             context.Send(this, &Console, new TEventData("sleep"));
         }
+        if (Env::HaveConsole) {
+            context.Send(this, &Console, new TEventSleep());
+        }
+        context.Send(this, &Channel, new TEventSleep());
+        context.ActorLib.Sleep();
         PowerBluetooth = false;
         //PowerI2C = false;
-        context.ActorLib.Sleeping = true;
     }
 
     void SensorWakeUp(TUniquePtr<TEventWakeUp> event, const TActorContext& context) {
-        context.ActorLib.Sleeping = false;
-        if (Env::Diagnostics && Env::HaveConsole) {
+        PowerBluetooth = true;
+        context.ActorLib.WakeUp();
+        if (Env::HaveConsole) {
             context.Send(this, &Console, new TEventWakeUp());
+        }
+        context.Send(this, &Channel, new TEventWakeUp());
+        if (Env::Diagnostics && Env::HaveConsole) {
             context.Send(this, &Console, new TEventData("wakeup"));
         }
-        PowerBluetooth = true;
         /*PowerI2C = true;
         delay(10);
         Env::Wire::Begin();*/
-        context.Send(this, &Channel, new TEventWakeUp());
     }
 
     void SensorBootstrap(TUniquePtr<TEventBootstrap> event, const TActorContext& context) {
         ActorLib = &context.ActorLib;
         Led = true;
-        if (Env::HaveConsole) {
-            context.ActorLib.Register(&Console);
-        }
+        context.ActorLib.Register(&Console);
         context.ActorLib.Register(&Channel);
         context.ActorLib.Register(&Bluetooth);
         if (Env::HaveConsole) {
@@ -275,8 +281,9 @@ public:
         ConnectAliveTime = context.Now;
         const auto& data(event->Data);
         if (OnCommand(data, context)) {
-
+            // do nothing
         } else if (data == "OK") {
+            // do nothing
         } else if (data == "PING") {
             context.Send(this, event->Sender, new TEventData("PONG"));
         } else if (data == "CONNECTED") {
@@ -310,14 +317,20 @@ public:
         } else if (data == "STOP") {
             Feed = false;
             Period = DefaultPeriod;
-        } else if (data == "RESET") {
-            Reset("Reset by command");
+        } else if (data.starts_with("RESET")) {
+            StringBuf command(data);
+            command.NextToken(' ');
+            StringBuf reason = "CMD";
+            if (!command.empty()) {
+                reason = command;
+            }
+            Reset(reason);
         } else if (data.starts_with("BT")) {
             StringBuf command(data);
             command.NextToken(' ');
             context.Send(this, &Channel, new TEventData(command));
         } else {
-            context.Send(this, event->Sender, new TEventData("WRONG"));
+            context.Send(this, event->Sender, new TEventData(StringStream() << "WRONG " << data));
         }
         if (Env::HaveConsole && event->Sender != &Console) {
             context.Send(this, &Console, event.Release());
@@ -395,27 +408,26 @@ public:
         }
         if (!context.ActorLib.Sleeping) {
             if (LastReportTime + TTime::Minutes(5) < context.Now) {
-                Reset("Reset by 5 minutes without data");
+                Reset("MIN5-D");
             }
             if (TTime::Hours(24) < context.Now) {
-                Reset("Reset by 24 hours");
+                Reset("HOUR24");
             }
             if (ConnectAliveTime + TTime::Minutes(3) < context.Now) {
-                Reset("Reset by 3 minutes without connect");
+                Reset("MIN3-C");
             }
-        }
-        if (Feed) {
-            //ConnectAliveTime = context.Now;
-            SendSensors(context);
-        } else {
-            if (!Connected && !context.ActorLib.Sleeping) {
-                context.Send(this, &Channel, new TEventData("AT"));
+            if (Feed) {
+                //ConnectAliveTime = context.Now;
+                SendSensors(context);
+            } else {
+                if (!Connected) {
+                    context.Send(this, &Channel, new TEventData("AT"));
+                }
             }
         }
         OnReceive(context);
         event->NotBefore = context.Now + Period;
         context.Resend(this, event.Release());
-        delay(100);
         Led = false;
     }
 
@@ -427,11 +439,11 @@ public:
         PowerBluetooth = false;
         for (int i = 0; i < 15; ++i) {
             Led = true;
-            delay(25);
+            delayMicroseconds(25000);
             Led = false;
-            delay(50);
+            delayMicroseconds(50000);
         }
-        AW::Reset();
+        AW::Reset(reason);
     }
 };
 

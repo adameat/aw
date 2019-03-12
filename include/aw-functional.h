@@ -3,7 +3,7 @@
 namespace AW {
 
 template <typename Type>
-inline Type&& Move(Type&& value) {
+inline Type&& Move(Type& value) {
     return static_cast<Type&&>(value);
 }
 

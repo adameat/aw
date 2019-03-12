@@ -134,6 +134,8 @@ public:
 
 class TActorLib {
 public:
+    static constexpr TTime MinSleepPeriod = TTime::MilliSeconds(128);
+    static constexpr TTime WatchdogTimeout = TTime::MilliSeconds(16000);
     TTime BusyTime;
     TTime SleepTime;
     bool Sleeping = false;
@@ -146,6 +148,8 @@ public:
     void SendSync(TActor* recipient, TEventPtr event);
     void Resend(TActor* recipient, TEventPtr event);
     void ResendImmediate(TActor* recipient, TEventPtr event);
+    void Sleep();
+    void WakeUp();
 
 protected:
     //TDeque<TEventPtr, 16> Events;
@@ -603,7 +607,9 @@ inline uint16_t bswap(uint16_t v) {
     return t.u16;
 }
 
-void Reset();
+void DefaultReset(StringBuf reason);
+extern void(*Reset)(StringBuf reason);
+StringBuf GetLastResetReason();
 
 } // namespace AW
 
