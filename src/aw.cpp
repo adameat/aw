@@ -35,7 +35,8 @@ void TActorContext::ResendAfter(TActor* recipient, TEventPtr event, TTime time) 
 }
 
 TActorLib::TActorLib() {
-    //Watchdog.sleep(10); // it will reset here first time after flash... don't know, why
+    auto slept = Watchdog.sleep(10); // it will reset here first time after flash... don't know, why
+    SleepTime += TTime::MilliSeconds(slept);
     Watchdog.enable(WatchdogTimeout.MilliSeconds());
 }
 
@@ -55,9 +56,7 @@ void TActorLib::Register(TActor* actor) {
 
 void TActorLib::Run() {
     TActorContext context(*this);
-    //context.Now += SleepTime;
     TActor* itActor = Actors;
-    //TTime minSleep = TTime::Max();
     TTime nextEvent = TTime::Max();
     TTime now;
     while (itActor != nullptr) {
@@ -65,6 +64,7 @@ void TActorLib::Run() {
         auto& events(itActor->Events);
         auto end(events.end());
         auto itEvent = events.begin();
+        events.size();
         while (itEvent != events.end() && itEvent != end) {
             TEventPtr event = events.pop_value(itEvent);
             TTime start = now = TTime::Now();
@@ -80,6 +80,7 @@ void TActorLib::Run() {
             } else {
                 nextEvent = TTime::Zero();
                 itActor->OnEvent(Move(event), context);
+                events.size();
                 now = TTime::Now();
                 TTime spent = now - start;
                 itActor->BusyTime += spent;
@@ -88,6 +89,7 @@ void TActorLib::Run() {
                     break;
             }
         }
+        events.size();
         itActor = itActor->NextActor;
     }
     if (nextEvent != TTime::Zero()) {
@@ -108,13 +110,13 @@ void TActorLib::Run() {
             //ConsoleSerial.print("->");
 
             Watchdog.disable();
-            //auto slept = Watchdog.sleep(sleep);
-            delay(sleep);
+            auto slept = Watchdog.sleep(sleep);
+            //delay(sleep);
             Watchdog.enable(WatchdogTimeout.MilliSeconds());
 
             //ConsoleSerial.println(slept);
 
-            //SleepTime += TTime::MilliSeconds(slept);
+            SleepTime += TTime::MilliSeconds(slept);
         }
     }
 }
@@ -169,10 +171,14 @@ String TTime::AsString() const {
 }
 
 char String::ConversionBuffer[32];
+#ifdef ARDUINO
 static volatile char LastResetReason[8] __attribute__((section(".noinit")));
+#else
+static volatile char LastResetReason[8];
+#endif
 
 void DefaultReset(StringBuf reason) {
-    memcpy(const_cast<char*>(LastResetReason), reason.begin(), min(reason.size(), sizeof(LastResetReason) - 1));
+    memcpy(const_cast<char*>(LastResetReason), reason.begin(), min(reason.size(), (StringBuf::size_type)(sizeof(LastResetReason) - 1)));
 #ifdef ARDUINO_ARCH_AVR
 	void(*reset)() = nullptr;
 	reset();

@@ -307,9 +307,7 @@ protected:
 
 class String : public StringBuf {
 public:
-    constexpr String()
-        : Buffer(nullptr)
-    {}
+    constexpr String() = default;
 
     String(const char* begin, size_type length)
         : String()
@@ -324,7 +322,10 @@ public:
     template <size_type N>
     constexpr String(const char(&string)[N])
         : StringBuf(&string[0], &string[N - 1])
-        , Buffer(nullptr)
+    {}
+
+    String(const char* ptr)
+        : StringBuf(ptr, ptr + static_cast<size_type>(strlen(ptr)))
     {}
 
     static char ConversionBuffer[32];
@@ -492,9 +493,41 @@ public:
         resize(0);
     }
 
+    const char* data() const {
+        return Begin;
+    }
+
     char* data() {
         EnsureOneOwner();
         return const_cast<char*>(Begin);
+    }
+
+    size_type capacity() const {
+        if (Buffer != nullptr) {
+            return static_cast<size_type>(Buffer->end() - begin());
+        }
+        return 0;
+    }
+
+    bool check() const {
+        if (end() < begin()) {
+            return false;
+        }
+        if (Buffer != nullptr) {
+            if (begin() < Buffer->begin()) {
+                return false;
+            }
+            if (end() > Buffer->end()) {
+                return false;
+            }
+            if (Buffer->Length < size()) {
+                return false;
+            }
+            if (Buffer->RefCounter == 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     bool _IsShared() const { return Buffer == nullptr || Buffer->RefCounter > 1; }
@@ -504,7 +537,7 @@ protected:
     void EnsureOneOwner(size_type size = 0) {
         if (Buffer != nullptr) {
             if (Buffer->RefCounter != 1) {
-                StringBuf original = *this;
+                const String original = *this;
                 size = max((size_type)(16 - sizeof(StringData)), max(size, original.size()));
                 Free();
                 Alloc(size);
@@ -514,13 +547,28 @@ protected:
                 if (Begin == End && Begin != Buffer->Data) {
                     End = Begin = Buffer->Data;
                 }
-                if ((size_type)(Buffer->Length) - (Begin - Buffer->Data) < size) {
-                    Realloc(max((size_type)(16 - sizeof(StringData)), max(size, this->size())));
+                size_type cap = capacity();
+                if (size > cap) {
+                    size = max((size_type)(16 - sizeof(StringData)), size);
+                    if (Buffer->Length >= size) {
+                        if (begin() != Buffer->begin()) {
+                            size_type size = this->size();
+                            memcpy(Buffer->Data, begin(), size);
+                            Begin = Buffer->Data;
+                            End = Begin + size;
+                        }
+                    } else {
+                        const String original = *this;
+                        Free();
+                        Alloc(size);
+                        memcpy(Buffer->Data, original.data(), original.size());
+                        End = Begin + original.size();
+                    }
                 }
             }
         } else {
             if (size != 0) {
-                StringBuf original = *this;
+                const StringBuf original = *this;
                 Alloc(size);
                 memcpy(Buffer->Data, original.data(), original.size());
                 End = Begin + original.size();
@@ -551,6 +599,14 @@ protected:
         size_type Length;
         unsigned char RefCounter;
         char Data[];
+
+        char* begin() {
+            return Data;
+        }
+
+        char* end() {
+            return begin() + Length;
+        }
     };
 #ifndef ARDUINO
 #pragma warning(default:4200)
@@ -574,21 +630,7 @@ protected:
         }
     }
 
-    void Realloc(size_type length) {
-        StringData* newBuffer = (StringData*)realloc(Buffer, length + sizeof(StringData));
-        if (newBuffer == Buffer) {
-            Buffer->Length = length;
-        } else {
-            size_type size = this->size();
-            Buffer = newBuffer;
-            Buffer->RefCounter = 1;
-            Buffer->Length = length;
-            Begin = Buffer->Data;
-            End = Begin + size;
-        }
-    }
-
-    StringData* Buffer;
+    StringData* Buffer = nullptr;
 };
 
 class StringStream {

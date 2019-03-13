@@ -12,9 +12,9 @@ class TList<TUniquePtr<ItemType>> {
 public:
     using TItemType = TUniquePtr<ItemType>;
 
-    class TItemBase {
+    struct TItemBase {
         friend TList;
-    private:
+    //private:
         TUniquePtr<ItemType> Next;
     };
 
@@ -93,19 +93,17 @@ public:
     TItemType pop_value(Iterator& it) {
         if (it == begin()) {
             TItemType oldBegin(Move(Begin));
-            VERIFY(Begin.Get() == nullptr);
             it = (Begin = Move(oldBegin->Next)).Get();
-            VERIFY(oldBegin->Next.Get() == nullptr);
             return oldBegin;
         } else {
             Iterator next = begin();
             while (next != end()) {
                 Iterator prev = next++;
                 if (next == it) {
-                    TItemType value(Move(prev.Get()->Next));
-                    VERIFY(prev.Get()->Next.Get() == nullptr);
-                    it = (prev.Get()->Next = Move(value->Next)).Get();
-                    VERIFY(value->Next.Get() == nullptr);
+                    TItemType& prevNext(prev.Get()->Next);
+                    TItemType value(Move(prevNext));
+                    prevNext = Move(value->Next);
+                    it = prevNext.Get();
                     return value;
                 }
             }
@@ -115,14 +113,16 @@ public:
 
     Iterator erase(Iterator it) {
         if (it == begin()) {
-            Begin = Move(Begin->Next);
+            TItemType oldNext(Move(Begin->Next));
+            Begin = Move(oldNext);
             return Begin.Get();
         } else {
-            Iterator next = begin();
-            while (next != end()) {
-                Iterator prev = next++;
-                if (next == it) {
-                    return (prev.Get()->Next = Move(next.Get()->Next)).Get();
+            Iterator curr = begin();
+            while (curr != end()) {
+                Iterator prev = curr++;
+                if (curr == it) {
+                    TItemType oldNext(Move(curr.Get()->Next));
+                    return (prev.Get()->Next = Move(oldNext)).Get();
                 }
             }
         }
@@ -132,14 +132,13 @@ public:
     Iterator insert(Iterator it, TItemType item) {
         if (it == begin()) {
             item->Next = Move(Begin);
-            VERIFY(Begin.Get() == nullptr);
             Begin = Move(item);
             return begin();
         } else {
-            Iterator next = begin();
-            while (next != end()) {
-                Iterator prev = next++;
-                if (next == it) {
+            Iterator curr = begin();
+            while (curr != end()) {
+                Iterator prev = curr++;
+                if (curr == it) {
                     item->Next = Move(prev.Get()->Next);
                     prev.Get()->Next = Move(item);
                     return prev.Get()->Next.Get();

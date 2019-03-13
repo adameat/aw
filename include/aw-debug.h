@@ -1,8 +1,5 @@
 #pragma once
 
-#define VERIFY(x)                     \
-    do                                \
-    {                                 \
-        if (!(x))                     \
-            *((int *)0xfffffffc) = 1; \
-    } while (false);
+#ifndef VERIFY
+    #define VERIFY(x) while (!(x) && *((int *)0xfffffffc) != 1);
+#endif

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <HardwareSerial.h>
+#include "aw-debug.h"
 
 namespace AW {
 
@@ -182,7 +183,7 @@ protected:
         //context.ResendAfter(this, event.Release(), GetSafeIdleTime());
     }
 
-    void OnSleep(TUniquePtr<TEventSleep>, const TActorContext& context) {
+    void OnSleep(TUniquePtr<TEventSleep>, const TActorContext&) {
         Port.Flush();
     }
 

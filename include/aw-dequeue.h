@@ -41,11 +41,11 @@ public:
     }
 
     void push_back(TItemType item) {
-        insert(end(), item);
+        insert(end(), Move(item));
     }
 
     void push_front(TItemType item) {
-        insert(begin(), item);
+        insert(begin(), Move(item));
     }
 
     void pop_front() {
@@ -79,23 +79,23 @@ public:
             if (it == begin()) {
                 if (it > capacity_begin()) {
                     --BeginIdx;
-                    *begin() = item;
+                    *begin() = Move(item);
                     return begin();
                 }
                 move(it, end(), it + 1);
                 ++EndIdx;
-                *it = item;
+                *it = Move(item);
             } else
                 if (it == end()) {
                     if (it < capacity_end()) {
-                        *end() = item;
+                        *end() = Move(item);
                         ++EndIdx;
                         return it;
                     }
                     move(begin(), it, begin() - 1);
                     --BeginIdx;
                     --it;
-                    *it = item;
+                    *it = Move(item);
                 }
         } else {
             Serial.print("\nOVERFLOW!\n");
