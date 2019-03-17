@@ -3,8 +3,6 @@
 #include <Wire.h>
 #include "aw.h"
 
-//extern Uart ConsoleSerial;
-
 namespace AW {
 
 TActorContext::TActorContext(TActorLib& actorLib)
@@ -35,9 +33,13 @@ void TActorContext::ResendAfter(TActor* recipient, TEventPtr event, TTime time) 
 }
 
 TActorLib::TActorLib() {
+#ifndef _DEBUG_SLEEP
     auto slept = Watchdog.sleep(10); // it will reset here first time after flash... don't know, why
     SleepTime += TTime::MilliSeconds(slept);
+#endif
+#ifndef _DEBUG_WATCHDOG
     Watchdog.enable(WatchdogTimeout.MilliSeconds());
+#endif
 }
 
 void TActorLib::Register(TActor* actor) {
@@ -60,7 +62,9 @@ void TActorLib::Run() {
     TTime nextEvent = TTime::Max();
     TTime now;
     while (itActor != nullptr) {
+#ifndef _DEBUG_WATCHDOG
         Watchdog.reset();
+#endif
         auto& events(itActor->Events);
         auto end(events.end());
         auto itEvent = events.begin();
@@ -105,18 +109,18 @@ void TActorLib::Run() {
         }
         if (minSleep >= MinSleepPeriod) {
             auto sleep = minSleep.MilliSeconds();
-
-            //ConsoleSerial.print(sleep);
-            //ConsoleSerial.print("->");
-
+#ifndef _DEBUG_WATCHDOG
             Watchdog.disable();
+#endif
+#ifdef _DEBUG_SLEEP
+            delay(sleep);
+#else
             auto slept = Watchdog.sleep(sleep);
-            //delay(sleep);
-            Watchdog.enable(WatchdogTimeout.MilliSeconds());
-
-            //ConsoleSerial.println(slept);
-
             SleepTime += TTime::MilliSeconds(slept);
+#endif
+#ifndef _DEBUG_WATCHDOG
+            Watchdog.enable(WatchdogTimeout.MilliSeconds());
+#endif
         }
     }
 }
@@ -132,7 +136,9 @@ void TActorLib::SendImmediate(TActor* recipient, TEventPtr event) {
 void TActorLib::SendSync(TActor* recipient, TEventPtr event) {
     TActorContext context(*this);
     context.Now += SleepTime;
+#ifndef _DEBUG_WATCHDOG
     Watchdog.reset();
+#endif
     TTime start = TTime::Now();
     recipient->OnEvent(Move(event), context);
     TTime spent = TTime::Now() - start;
@@ -179,6 +185,11 @@ static volatile char LastResetReason[8];
 
 void DefaultReset(StringBuf reason) {
     memcpy(const_cast<char*>(LastResetReason), reason.begin(), min(reason.size(), (StringBuf::size_type)(sizeof(LastResetReason) - 1)));
+#ifdef _DEBUG_HANG_ON_RESET
+    for (;;) {
+        yield();
+    }
+#endif
 #ifdef ARDUINO_ARCH_AVR
 	void(*reset)() = nullptr;
 	reset();

@@ -1,5 +1,14 @@
 #pragma once
 
+//#define _DEBUG
+
+#ifdef _DEBUG
+#define _DEBUG_HANG_ON_RESET
+#define _DEBUG_HEAP
+#define _DEBUG_SLEEP
+#define _DEBUG_WATCHDOG
+#endif
+
 #include <Arduino.h>
 #include <Wire.h>
 #include "aw-string-buf.h"
