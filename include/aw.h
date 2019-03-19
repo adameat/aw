@@ -175,6 +175,7 @@ struct TActorContext {
 
     TActorContext(TActorLib& actorLib);
     void Send(TActor* sender, TActor* recipient, TEventPtr event) const;
+    void SendAfter(TActor* sender, TActor* recipient, TEventPtr event, TTime time) const;
     void SendImmediate(TActor* sender, TActor* recipient, TEventPtr event) const;
     void Resend(TActor* recipient, TEventPtr event) const;
     void ResendImmediate(TActor* recipient, TEventPtr event) const;
@@ -672,6 +673,7 @@ struct TDefaultEnvironment {
     // sensors
     static constexpr TTime DefaultPeriod = TTime::Seconds(30);
     static constexpr TTime SensorsPeriod = TTime::MilliSeconds(5000);
+    static constexpr TTime WarmupPeriod = TTime::Seconds(10);
     static constexpr bool SensorsSendValues = false;
     static constexpr bool SensorsCalibration = false;
 

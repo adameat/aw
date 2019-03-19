@@ -83,6 +83,23 @@ class TSensorINA219 : public TActor, public TSensorSource {
         int16_t Value : 13;
     };
 
+    enum class EStage {
+        Shot,
+        Data,
+    };
+
+    EStage Stage = EStage::Shot;
+
+    static constexpr TTime GetShotPeriod() { return TTime::MilliSeconds(69); }
+
+    static constexpr uint16_t ConfigValue =
+        EFlags::INA219_CONFIG_BVOLTAGERANGE_16V |
+        EFlags::INA219_CONFIG_GAIN_1_40MV |
+        EFlags::INA219_CONFIG_BADCRES_12BIT |
+        EFlags::INA219_CONFIG_SADCRES_12BIT_128S_69MS |
+        //EFlags::INA219_CONFIG_MODE_SANDBVOLT_TRIGGERED;
+        EFlags::INA219_CONFIG_MODE_SANDBVOLT_CONTINUOUS;
+
 public:
     uint8_t Address = 0x40;
     TActor* Owner;
@@ -112,14 +129,6 @@ protected:
         }
     }
 
-    static constexpr uint16_t ConfigValue =
-        EFlags::INA219_CONFIG_BVOLTAGERANGE_16V |
-        EFlags::INA219_CONFIG_GAIN_1_40MV |
-        EFlags::INA219_CONFIG_BADCRES_12BIT |
-        EFlags::INA219_CONFIG_SADCRES_12BIT_128S_69MS |
-        //EFlags::INA219_CONFIG_MODE_SANDBVOLT_TRIGGERED;
-        EFlags::INA219_CONFIG_MODE_SANDBVOLT_CONTINUOUS;
-
     void OnBootstrap(TUniquePtr<TEventBootstrap>, const TActorContext& context) {
         if (Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CONFIG, ConfigValue)) {
             if (UseChipCalculations) {
@@ -136,14 +145,6 @@ protected:
             }
         }
     }
-
-    enum class EStage {
-        Shot,
-        Data,
-    };
-
-    EStage Stage = EStage::Shot;
-    static constexpr TTime GetShotPeriod() { return TTime::MilliSeconds(100); }
 
     void OnReceive(AW::TUniquePtr<AW::TEventReceive> event, const AW::TActorContext& context) {
         if (Stage == EStage::Shot) {

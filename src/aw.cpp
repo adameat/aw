@@ -14,6 +14,11 @@ void TActorContext::Send(TActor* sender, TActor* recipient, TEventPtr event) con
     recipient->OnSend(Move(event), *this);
 }
 
+void TActorContext::SendAfter(TActor* sender, TActor* recipient, TEventPtr event, TTime time) const {
+    event->NotBefore = Now + time;
+    Send(sender, recipient, Move(event));
+}
+
 void TActorContext::SendImmediate(TActor* sender, TActor* recipient, TEventPtr event) const {
     event->Sender = sender;
     ActorLib.SendImmediate(recipient, Move(event));
@@ -227,6 +232,7 @@ void TActor::PurgeEvents(TEventID eventId) {
 }
 
 constexpr TTime TActorLib::MinSleepPeriod;
+constexpr TTime TDefaultEnvironment::WarmupPeriod;
 
 }
 

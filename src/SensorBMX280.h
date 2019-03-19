@@ -284,6 +284,7 @@ protected:
                 stream << " on " << String(Address, 16);
                 context.Send(this, Owner, new AW::TEventSensorMessage(*this, stream));
             }
+            ReadCoefficients(Calib);
             context.Send(this, this, new AW::TEventReceive());
         } else {
             if (Env::Diagnostics) {
