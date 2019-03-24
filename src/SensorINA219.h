@@ -2,8 +2,6 @@
 
 #include "aw.h"
 
-extern Uart ConsoleSerial;
-
 namespace AW {
 
 template <typename Env = TDefaultEnvironment>
@@ -271,11 +269,6 @@ protected:
                 float currentValue = shuntValue / RSHUNT;
                 Current = currentValue;
                 Power = busValue * currentValue;
-                if (Env::HaveConsole) {
-                    ConsoleSerial.print(currentValue);
-                    ConsoleSerial.print("\t");
-                    ConsoleSerial.println(Current.Value);
-                }
             }
         }
 

@@ -7,8 +7,6 @@
 #include "aw-string-buf.h"
 #include "aw-time.h"
 
-extern Uart ConsoleSerial;
-
 namespace AW {
 
 class TOptionalValue {
@@ -443,7 +441,7 @@ public:
             Led = false;
             delayMicroseconds(50000);
         }
-        AW::Reset(reason);
+        AW::DefaultReset(reason);
     }
 };
 

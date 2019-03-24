@@ -183,14 +183,17 @@ String TTime::AsString() const {
 
 char String::ConversionBuffer[32];
 #ifdef ARDUINO
-static volatile char LastResetReason[8] __attribute__((section(".noinit")));
+static volatile char LastResetReason[32] __attribute__((section(".noinit")));
 #else
-static volatile char LastResetReason[8];
+static volatile char LastResetReason[32];
 #endif
 
 void DefaultReset(StringBuf reason) {
     memcpy(const_cast<char*>(LastResetReason), reason.begin(), min(reason.size(), (StringBuf::size_type)(sizeof(LastResetReason) - 1)));
 #ifdef _DEBUG_HANG_ON_RESET
+#ifndef _DEBUG_WATCHDOG
+    Watchdog.disable();
+#endif
     for (;;) {
         yield();
     }
