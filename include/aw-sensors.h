@@ -176,16 +176,10 @@ public:
         , PowerI2C(9)
         , ActorLib(nullptr)
     {
-        Led = true;
-        PowerI2C = true;
-        PowerBluetooth = true;
         TimeSource.Name = "time";
         TimeTotal.Name = "total";
         TimeBusy.Name = "busy";
         TimeSleep.Name = "sleep";
-        delay(10);
-        Env::Wire::Begin();
-        Led = false;
     }
 
     void OnEvent(TEventPtr event, const TActorContext& context) override {
@@ -200,12 +194,18 @@ public:
             return SensorSensorData(static_cast<TEventSensorData*>(event.Release()), context);
         case TEventSensorMessage::EventID:
             return SensorSensorMessage(static_cast<TEventSensorMessage*>(event.Release()), context);
-        case TEventSleep::EventID:
-            return SensorSleep(static_cast<TEventSleep*>(event.Release()), context);
-        case TEventWakeUp::EventID:
-            return SensorWakeUp(static_cast<TEventWakeUp*>(event.Release()), context);
         default:
             break;
+        }
+        if (Env::SupportsSleep) {
+            switch (event->EventID) {
+            case TEventSleep::EventID:
+                return SensorSleep(static_cast<TEventSleep*>(event.Release()), context);
+            case TEventWakeUp::EventID:
+                return SensorWakeUp(static_cast<TEventWakeUp*>(event.Release()), context);
+            default:
+                break;
+            }
         }
     }
 
@@ -221,7 +221,9 @@ public:
         TimeSource.Updated = context.Now;
         TimeTotal.Value.SetValue(context.Now.MilliSeconds());
         TimeBusy.Value.SetValue(context.ActorLib.BusyTime.MilliSeconds());
-        TimeSleep.Value.SetValue(context.ActorLib.SleepTime.MilliSeconds());
+        if (Env::SupportsSleep) {
+            TimeSleep.Value.SetValue(context.ActorLib.SleepTime.MilliSeconds());
+        }
         SendSensorValues(context, TimeSource, TimeTotal, TimeBusy, TimeSleep);
     }
 
@@ -231,37 +233,49 @@ public:
     }
 
     void SensorSleep(TUniquePtr<TEventSleep> event, const TActorContext& context) {
-        if (Env::Diagnostics && Env::HaveConsole) {
-            context.Send(this, &Console, new TEventData("sleep"));
+        if (Env::SupportsSleep) {
+            if (Env::Diagnostics && Env::HaveConsole) {
+                context.Send(this, &Console, new TEventData("sleep"));
+            }
+            if (Env::HaveConsole) {
+                context.Send(this, &Console, new TEventSleep());
+            }
+            context.Send(this, &Channel, new TEventSleep());
+            context.ActorLib.Sleep();
+            PowerBluetooth = false;
+            //PowerI2C = false;
         }
-        if (Env::HaveConsole) {
-            context.Send(this, &Console, new TEventSleep());
-        }
-        context.Send(this, &Channel, new TEventSleep());
-        context.ActorLib.Sleep();
-        PowerBluetooth = false;
-        //PowerI2C = false;
     }
 
     void SensorWakeUp(TUniquePtr<TEventWakeUp> event, const TActorContext& context) {
-        PowerBluetooth = true;
-        context.ActorLib.WakeUp();
-        if (Env::HaveConsole) {
-            context.Send(this, &Console, new TEventWakeUp());
+        if (Env::SupportsSleep) {
+            PowerBluetooth = true;
+            context.ActorLib.WakeUp();
+            if (Env::HaveConsole) {
+                context.Send(this, &Console, new TEventWakeUp());
+            }
+            context.Send(this, &Channel, new TEventWakeUp());
+            if (Env::Diagnostics && Env::HaveConsole) {
+                context.Send(this, &Console, new TEventData("wakeup"));
+            }
+            /*PowerI2C = true;
+            delay(10);
+            Env::Wire::Begin();*/
         }
-        context.Send(this, &Channel, new TEventWakeUp());
-        if (Env::Diagnostics && Env::HaveConsole) {
-            context.Send(this, &Console, new TEventData("wakeup"));
-        }
-        /*PowerI2C = true;
-        delay(10);
-        Env::Wire::Begin();*/
     }
 
     void SensorBootstrap(TUniquePtr<TEventBootstrap> event, const TActorContext& context) {
         ActorLib = &context.ActorLib;
         Led = true;
-        context.ActorLib.Register(&Console);
+
+        PowerI2C = true;
+        PowerBluetooth = true;
+        delay(10);
+        Env::Wire::Begin();
+
+        if (Env::HaveConsole) {
+            context.ActorLib.Register(&Console);
+        }
         context.ActorLib.Register(&Channel);
         context.ActorLib.Register(&Bluetooth);
         if (Env::HaveConsole) {
@@ -301,7 +315,7 @@ public:
                 Period = DefaultPeriod;
             }
             EventReceive->NotBefore = context.Now/* + Period*/;
-        } else if (data.starts_with("SLEEP")) {
+        } else if (Env::SupportsSleep && data.starts_with("SLEEP")) {
             if (data.size() > 5) {
                 TTime period = TTime::Seconds(data.substr(6));
                 context.Send(this, this, new TEventSleep());

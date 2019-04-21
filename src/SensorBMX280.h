@@ -210,11 +210,11 @@ protected:
     CalibData Calib;
     TTime CalibLastUpdate;
 
-    sensor_sampling tempSampling = SAMPLING_X4;
-    sensor_sampling pressSampling = SAMPLING_X4;
-    sensor_sampling humSampling = SAMPLING_X4;
-    sensor_filter filter = FILTER_OFF;
-    standby_duration duration = STANDBY_MS_1000;
+    static constexpr sensor_sampling tempSampling = SAMPLING_X4;
+    static constexpr sensor_sampling pressSampling = SAMPLING_X4;
+    static constexpr sensor_sampling humSampling = SAMPLING_X4;
+    static constexpr sensor_filter filter = FILTER_OFF;
+    static constexpr standby_duration duration = STANDBY_MS_1000;
 
     void OnEvent(TEventPtr event, const TActorContext& context) override {
         switch (event->EventID) {

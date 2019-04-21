@@ -112,6 +112,9 @@ void TActorLib::Run() {
                 minSleep = MinSleepPeriod;
             }
         }
+        if (minSleep > MaxSleepPeriod) {
+            minSleep = MaxSleepPeriod;
+        }
         if (minSleep >= MinSleepPeriod) {
             auto sleep = minSleep.MilliSeconds();
 #ifndef _DEBUG_WATCHDOG
@@ -183,9 +186,9 @@ String TTime::AsString() const {
 
 char String::ConversionBuffer[32];
 #ifdef ARDUINO
-static volatile char LastResetReason[32] __attribute__((section(".noinit")));
+static volatile char LastResetReason[16] __attribute__((section(".noinit")));
 #else
-static volatile char LastResetReason[32];
+static volatile char LastResetReason[16];
 #endif
 
 void DefaultReset(StringBuf reason) {
@@ -195,6 +198,14 @@ void DefaultReset(StringBuf reason) {
     Watchdog.disable();
 #endif
     for (;;) {
+        /*if (!reason.empty()) {
+            Serial.write(reason.data(), reason.size());
+        } else {
+            Serial.print("reset");
+        }
+        Serial.print(" ");
+        Serial.flush();
+        delay(1000);*/
         yield();
     }
 #endif

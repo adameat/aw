@@ -1,5 +1,5 @@
 #pragma once
 
 #ifndef VERIFY
-    #define VERIFY(x) while (!(x) && *((int *)0xfffffffc) != 1);
+    #define VERIFY(x) while (!(x)) { AW::Reset(#x); }
 #endif

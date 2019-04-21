@@ -91,9 +91,7 @@ public:
     TSerialActor(TActor* owner)
         : Owner(owner)
         , EOL("\n")
-    {
-        Port.Begin();
-    }
+    {}
 
 protected:
     TActor* Owner;
@@ -120,6 +118,7 @@ protected:
     }
 
     void OnBootstrap(TUniquePtr<TEventBootstrap>, const TActorContext& context) {
+        Port.Begin();
         context.Send(this, this, new TEventReceive);
     }
 
@@ -155,7 +154,7 @@ protected:
             return;
         }
         context.Resend(this, event.Release());
-        String::size_type size = (String::size_type)min(Port.AvailableForRead(), (MaxBufferSize - Buffer.size()));
+        String::size_type size = (String::size_type)min((unsigned int)Port.AvailableForRead(), (MaxBufferSize - Buffer.size()));
         if (size > 0) {
             String::size_type strStart = 0;
             String::size_type bufferPos = Buffer.size();

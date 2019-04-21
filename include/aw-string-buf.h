@@ -10,8 +10,8 @@
 namespace AW {
 
 struct StringPointer {
-    using size_type = uint8_t;
-    static constexpr size_type npos = 0xff;
+    using size_type = unsigned int;
+    static constexpr size_type npos = ~(size_type)0;
 
     StringPointer(const char* ptr);
 
@@ -32,7 +32,7 @@ public:
         : Begin(begin)
         , End(end) {}
 
-    template <size_type N>
+    template <int N>
     constexpr StringBuf(const char(&string)[N])
         : StringBuf(&string[0], &string[N - 1])
     {}

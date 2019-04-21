@@ -144,7 +144,8 @@ public:
 class TActorLib {
 public:
     static constexpr TTime MinSleepPeriod = TTime::MilliSeconds(128);
-    static constexpr TTime WatchdogTimeout = TTime::MilliSeconds(16000);
+    static constexpr TTime MaxSleepPeriod = TTime::MilliSeconds(4000);
+    static constexpr TTime WatchdogTimeout = TTime::MilliSeconds(8000);
     TTime BusyTime;
     TTime SleepTime;
     bool Sleeping = false;
@@ -680,6 +681,7 @@ struct TDefaultEnvironment {
     using Wire = TWire;
     static constexpr bool HaveConsole = false;
     static constexpr bool DumpSensorData = false;
+    static constexpr bool SupportsSleep = true;
 
     static constexpr bool UseSum = false;
     static constexpr bool UseCRC16 = true;
