@@ -208,7 +208,6 @@ public:
 
 protected:
     CalibData Calib;
-    TTime CalibLastUpdate;
 
     static constexpr sensor_sampling tempSampling = SAMPLING_X4;
     static constexpr sensor_sampling pressSampling = SAMPLING_X4;
@@ -284,7 +283,6 @@ protected:
                 stream << " on " << String(Address, 16);
                 context.Send(this, Owner, new AW::TEventSensorMessage(*this, stream));
             }
-            ReadCoefficients(Calib);
             context.Send(this, this, new AW::TEventReceive());
         } else {
             if (Env::Diagnostics) {
@@ -345,10 +343,7 @@ protected:
         if (Env::Wire::ReadValue(Address, ERegisters::REGISTER_STATUS, status)) {
             if ((status & 1) == 0) {
                 Updated = context.Now;
-                if (context.Now - CalibLastUpdate > TTime::Minutes(1)) {
-                    ReadCoefficients(Calib);
-                    CalibLastUpdate = context.Now;
-                }
+                    
                 int32_t t_fine = 0;
                 uint24_t temp;
                 if (Env::Wire::ReadValueLE(Address, ERegisters::REGISTER_TEMPDATA, temp) && temp != 0x800000) {

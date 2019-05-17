@@ -245,7 +245,55 @@ void TActor::PurgeEvents(TEventID eventId) {
     }
 }
 
+void TWire::Write(const void* data, int size) {
+    for (const uint8_t* d = (const uint8_t*)data + size - 1; d >= data; --d) {
+        Wire.write(*d);
+    }
+}
+
+void TWire::Read(void* data, int size) {
+    for (uint8_t* d = (uint8_t*)data + size - 1; d >= data; --d) {
+        *d = Wire.read();
+    }
+}
+
+void TWire::ReadLE(void* data, int size) {
+    for (uint8_t* d = (uint8_t*)data; d < (uint8_t*)data + size; ++d) {
+        *d = Wire.read();
+    }
+}
+
+bool TWire::ReadValue(uint8_t addr, uint8_t reg, void* val, int size) {
+    BeginTransmission(addr);
+    Write(reg);
+    if (!EndTransmission())
+        return false;
+    if (RequestFrom(addr, size) != size)
+        return false;
+    Read(val, size);
+    return true;
+}
+
+bool TWire::ReadValueLE(uint8_t addr, uint8_t reg, void* val, int size) {
+    BeginTransmission(addr);
+    Write(reg);
+    if (!EndTransmission())
+        return false;
+    if (RequestFrom(addr, size) != size)
+        return false;
+    ReadLE(val, size);
+    return true;
+}
+
+bool TWire::WriteValue(uint8_t addr, uint8_t reg, const void* val, int size) {
+    BeginTransmission(addr);
+    Write(reg);
+    Write(val, size);
+    return EndTransmission();
+}
+
 constexpr TTime TActorLib::MinSleepPeriod;
+constexpr TTime TActorLib::MaxSleepPeriod;
 constexpr TTime TDefaultEnvironment::WarmupPeriod;
 
 }

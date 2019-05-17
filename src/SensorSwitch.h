@@ -9,7 +9,7 @@ class TSensorSwitch : public TActor {
 public:
     TActor* Owner;
     TSensor<1> Sensor;
-    uint32_t Value = 0;
+    bool Value = false;
 
     enum ESensor {
         Switch,
@@ -40,12 +40,12 @@ protected:
     }
 
     void OnBootstrap(TUniquePtr<TEventBootstrap>, const TActorContext& context) {
-        Value = PinValue ? 0 : 1;
+        Value = !PinValue;
         context.Send(this, this, new TEventReceive());
     }
 
     void OnReceive(TUniquePtr<TEventReceive> event, const TActorContext& context) {
-        Value = PinValue ? 0 : 1;
+        Value = !PinValue;
         if (Value != Sensor.Values[ESensor::Switch].Value.GetValue()) {
             Sensor.Values[ESensor::Switch].Value.SetValue(Value);
             Sensor.Updated = context.Now;
