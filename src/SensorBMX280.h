@@ -343,7 +343,7 @@ protected:
         if (Env::Wire::ReadValue(Address, ERegisters::REGISTER_STATUS, status)) {
             if ((status & 1) == 0) {
                 Updated = context.Now;
-                    
+                ReadCoefficients(Calib);
                 int32_t t_fine = 0;
                 uint24_t temp;
                 if (Env::Wire::ReadValueLE(Address, ERegisters::REGISTER_TEMPDATA, temp) && temp != 0x800000) {

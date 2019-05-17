@@ -180,7 +180,6 @@ public:
             return false;
         }
         for (iterator it = begin(); it < end();) {
-            //String name = it.GetName();
             if (it.GetName() == name) {
                 if (it.GetDataSize() == dataSize) {
                     it.PutData(data);
@@ -188,10 +187,13 @@ public:
                 } else {
                     it.Erase();
                     Defrag();
-                    it = begin();
-                    continue;
+                    break;
                 }
-            } else if (it.IsFree() && it.IsEnoughSize(requiredSize)) {
+            }
+            ++it;
+        }
+        for (iterator it = begin(); it < end();) {
+            if (it.IsFree() && it.IsEnoughSize(requiredSize)) {
                 bool result = it.Put(name, data);
                 if (result) {
                     Defrag();

@@ -245,7 +245,7 @@ void TActor::PurgeEvents(TEventID eventId) {
     }
 }
 
-void TWire::Write(const void* data, int size) {
+/*void TWire::Write(const void* data, int size) {
     for (const uint8_t* d = (const uint8_t*)data + size - 1; d >= data; --d) {
         Wire.write(*d);
     }
@@ -290,7 +290,7 @@ bool TWire::WriteValue(uint8_t addr, uint8_t reg, const void* val, int size) {
     Write(reg);
     Write(val, size);
     return EndTransmission();
-}
+}*/
 
 constexpr TTime TActorLib::MinSleepPeriod;
 constexpr TTime TActorLib::MaxSleepPeriod;
