@@ -1,5 +1,11 @@
 #include <aw.h>
 #include "aw-string-buf.h"
+#ifdef ARDUINO_ARCH_STM32F1
+#include <itoa.h>
+#endif
+#ifdef ARDUINO_ARCH_SAMD
+#include <avr/dtostrf.h>
+#endif
 
 namespace AW {
 
@@ -201,6 +207,24 @@ uint16_t StringBuf::crc16() const {
         }
     }
     return crc;
+}
+
+char* StringBuf::dtostrf(double __val, signed char __width, unsigned char __prec, char* __s) {
+    char* result = ::dtostrf(__val, __width, __prec, __s);
+    auto len = strlen(result);
+    --len;
+    while (len > 0) {
+        char c = result[len];
+        if (c != '0' && c != '.') {
+            break;
+        }
+        result[len] = 0;
+        --len;
+        if (c == '.') {
+            break;
+        }
+    }
+    return result;
 }
 
 String::String(const char* ptr)

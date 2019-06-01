@@ -206,7 +206,15 @@ void DefaultReset(StringBuf reason) {
         Serial.print(" ");
         Serial.flush();
         delay(1000);*/
+#ifdef ARDUINO_ARCH_AVR
         yield();
+#endif
+#ifdef ARDUINO_ARCH_SAMD
+        yield();
+#endif
+#ifdef ARDUINO_ARCH_STM32F1
+        yield();
+#endif
     }
 #endif
 #ifdef ARDUINO_ARCH_AVR

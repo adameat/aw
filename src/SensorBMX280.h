@@ -361,10 +361,12 @@ protected:
                     t_fine = var1 + var2;
 
                     float T = (t_fine * 5 + 128) >> 8;
-                    Temperature.Value = T / 100;
+                    Temperature = T / 100;
                     if (Env::SensorsSendValues) {
                         context.Send(this, Owner, new AW::TEventSensorData(*this, Temperature));
                     }
+                } else {
+                    Temperature.Clear();
                 }
                 uint24_t pressure;
                 if (Env::Wire::ReadValueLE(Address, ERegisters::REGISTER_PRESSUREDATA, pressure) && pressure != 0x800000) {
@@ -388,11 +390,13 @@ protected:
 
                         p = ((p + var1 + var2) >> 8) + (((int64_t)Calib.dig_P7) << 4);
                         float P = (float)p / 256;
-                        Pressure.Value = P / 133.32239; // to mmHg
+                        Pressure = P / 133.32239; // to mmHg
                         if (Env::SensorsSendValues) {
                             context.Send(this, Owner, new AW::TEventSensorData(*this, Pressure));
                         }
                     }
+                } else {
+                    Pressure.Clear();
                 }
                 if (ChipID == EChips::BME280) {
                     uint16_t humidity;
@@ -414,10 +418,12 @@ protected:
                         v_x1_u32r = (v_x1_u32r < 0) ? 0 : v_x1_u32r;
                         v_x1_u32r = (v_x1_u32r > 419430400) ? 419430400 : v_x1_u32r;
                         float h = (v_x1_u32r >> 12);
-                        Humidity.Value = h / 1024.0;
+                        Humidity = h / 1024.0;
                         if (Env::SensorsSendValues) {
                             context.Send(this, Owner, new AW::TEventSensorData(*this, Humidity));
                         }
+                    } else {
+                        Humidity.Clear();
                     }
                 }
             }

@@ -1,11 +1,5 @@
 #pragma once
 #include <string.h>
-#ifdef ARDUINO_ARCH_STM32F1
-#include <itoa.h>
-#endif
-#ifdef ARDUINO_ARCH_SAMD
-#include <avr/dtostrf.h>
-#endif
 
 namespace AW {
 
@@ -118,6 +112,7 @@ public:
 
     StringBuf NextToken(char delimeter = ' ');
     uint16_t crc16() const;
+    static char* dtostrf(double __val, signed char __width, unsigned char __prec, char* __s);
 
 protected:
     const char* Begin;
@@ -159,8 +154,8 @@ public:
     String(int value, unsigned char base = 10);
     String(unsigned long value, unsigned char base = 10);
     String(long value, unsigned char base = 10);
-    String(float value, unsigned char decimalPlaces = 2);
-    String(double value, unsigned char decimalPlaces = 2);
+    String(float value, unsigned char decimalPlaces = 3);
+    String(double value, unsigned char decimalPlaces = 3);
     String(const String& string);
     String(String&& string);
 
