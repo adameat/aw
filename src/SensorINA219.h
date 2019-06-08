@@ -7,6 +7,7 @@ namespace AW {
 template <typename Env = TDefaultEnvironment>
 class TSensorINA219 : public TActor, public TSensorSource {
     constexpr static bool UseChipCalculations = false;
+    constexpr static double DeviceSelfConsumption = 0.6;
 
     struct ERegisters {
         static constexpr uint8_t INA219_REG_CONFIG = 0x00;
@@ -220,6 +221,8 @@ protected:
                 }
             }
 
+            float currentValue;
+
             if (UseChipCalculations) {
                 uint16_t calibration_value = 0;
                 int16_t current_value = 0;
@@ -237,7 +240,7 @@ protected:
                 Env::Wire::ReadValue(Address, ERegisters::INA219_REG_CURRENT, current_value);
                 Env::Wire::ReadValue(Address, ERegisters::INA219_REG_POWER, power_value);
 
-                float currentValue = current_value * currentLSB;
+                currentValue = current_value * currentLSB - DeviceSelfConsumption;
                 Current = currentValue;
                 float powerValue = power_value * powerLSB;
                 if (currentValue < 0) {
@@ -266,7 +269,7 @@ protected:
                     }
                 }
             } else {
-                float currentValue = shuntValue / RSHUNT;
+                currentValue = shuntValue / RSHUNT - DeviceSelfConsumption;
                 Current = currentValue;
                 Power = busValue * currentValue;
             }

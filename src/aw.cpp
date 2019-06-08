@@ -66,14 +66,13 @@ void TActorLib::Run() {
     TActor* itActor = Actors;
     TTime nextEvent = TTime::Max();
     TTime now;
-    while (itActor != nullptr) {
 #ifndef _DEBUG_WATCHDOG
         Watchdog.reset();
 #endif
+    while (itActor != nullptr) {
         auto& events(itActor->Events);
         auto end(events.end());
         auto itEvent = events.begin();
-        events.size();
         while (itEvent != events.end() && itEvent != end) {
             TEventPtr event = events.pop_value(itEvent);
             TTime start = now = TTime::Now();
@@ -98,7 +97,6 @@ void TActorLib::Run() {
                     break;
             }
         }
-        events.size();
         itActor = itActor->NextActor;
     }
     if (nextEvent != TTime::Zero()) {
@@ -300,8 +298,8 @@ bool TWire::WriteValue(uint8_t addr, uint8_t reg, const void* val, int size) {
     return EndTransmission();
 }*/
 
-constexpr TTime TActorLib::MinSleepPeriod;
-constexpr TTime TActorLib::MaxSleepPeriod;
+//constexpr TTime TActorLib::MinSleepPeriod;
+//constexpr TTime TActorLib::MaxSleepPeriod;
 constexpr TTime TDefaultEnvironment::WarmupPeriod;
 
 }

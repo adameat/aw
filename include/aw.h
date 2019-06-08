@@ -143,9 +143,9 @@ public:
 
 class TActorLib {
 public:
-    static constexpr TTime MinSleepPeriod = TTime::MilliSeconds(128);
-    static constexpr TTime MaxSleepPeriod = TTime::MilliSeconds(4000);
-    static constexpr TTime WatchdogTimeout = TTime::MilliSeconds(8000);
+    TTime MinSleepPeriod = TTime::MilliSeconds(128);
+    TTime MaxSleepPeriod = TTime::MilliSeconds(4000);
+    TTime WatchdogTimeout = TTime::MilliSeconds(8000);
     TTime BusyTime;
     TTime SleepTime;
     bool Sleeping = false;
