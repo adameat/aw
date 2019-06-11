@@ -154,7 +154,7 @@ public:
     TBluetoothActor<TBluetoothZS040> Bluetooth;
     TDigitalPin PowerBluetooth;
     TDigitalPin PowerI2C;
-    //TDigitalPin SleepLED;
+    TDigitalPin SleepLED;
     TLed Led;
     bool Connected = false;
     bool Feed = false;
@@ -175,7 +175,7 @@ public:
         , Bluetooth(this, &Channel)
         , PowerBluetooth(8)
         , PowerI2C(9)
-        //, SleepLED(7)
+        , SleepLED(7)
         , ActorLib(nullptr)
     {
         TimeSource.Name = "time";
@@ -245,14 +245,14 @@ public:
             context.Send(this, &Channel, new TEventSleep());
             context.ActorLib.Sleep();
             PowerBluetooth = false;
-            //SleepLED = true;
+            SleepLED = true;
             //PowerI2C = false;
         }
     }
 
     void SensorWakeUp(TUniquePtr<TEventWakeUp> event, const TActorContext& context) {
         if (Env::SupportsSleep) {
-            //SleepLED = false;
+            SleepLED = false;
             PowerBluetooth = true;
             context.ActorLib.WakeUp();
             if (Env::HaveConsole) {

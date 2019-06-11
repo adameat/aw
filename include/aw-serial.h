@@ -2,6 +2,9 @@
 
 #include <HardwareSerial.h>
 #include "aw-debug.h"
+#if defined(ARDUINO_ARCH_SAMD)
+#include <wiring_private.h>
+#endif
 
 namespace AW {
 
@@ -47,7 +50,7 @@ public:
 };
 
 #ifdef ARDUINO_ARCH_STM32F1
-template <USBSerial& Port, long Baud>
+template <USBSerial& Port, long Baud, uint8_t RX = 0, uint8_t TX = 1>
 class TUSBSerial : public TBasicSerial<USBSerial, Port, Baud> {
 public:
     static int Write(const char* buffer, int length) {
@@ -55,7 +58,7 @@ public:
     }
 };
 
-template <HardwareSerial& Port, long Baud>
+template <HardwareSerial& Port, long Baud, uint8_t RX = 0, uint8_t TX = 1>
 class THardwareSerial : public TBasicSerial<HardwareSerial, Port, Baud> {
 public:
     static int Write(const char* buffer, int length) {
@@ -68,12 +71,21 @@ class TUSBSerial : public TBasicSerial<Serial_, Port, Baud> {
 public:
 };
 
-template <Uart& Port, long Baud>
+template <Uart& Port, long Baud, uint8_t RX = 0, uint8_t TX = 1>
 class THardwareSerial : public TBasicSerial<Uart, Port, Baud> {
 public:
+    static void Begin() {
+        TBasicSerial<Uart, Port, Baud>::Begin();
+        if (RX != 0) {
+            pinPeripheral(RX, PIO_SERCOM);
+        }
+        if (TX != 1) {
+            pinPeripheral(TX, PIO_SERCOM);
+        }
+    }
 };
 #else
-template <HardwareSerial& Port, long Baud>
+template <HardwareSerial& Port, long Baud, uint8_t RX = 0, uint8_t TX = 1>
 class THardwareSerial : public TBasicSerial<HardwareSerial, Port, Baud> {
 public:
 };
@@ -204,6 +216,15 @@ public:
         : TBase(owner)
     {}
 
+    void OnSend(TEventPtr event, const TActorContext& context) override {
+        switch (event->EventID) {
+        case TEventData::EventID:
+            return context.ActorLib.SendSync(this, Move(event));
+        default:
+            return TBase::OnSend(Move(event), context);
+        }
+    }
+
 protected:
     void OnEvent(TEventPtr event, const TActorContext& context) override {
         switch (event->EventID) {
@@ -211,15 +232,6 @@ protected:
             return OnData(static_cast<TEventData*>(event.Release()), context);
         default:
             return TBase::OnEvent(Move(event), context);
-        }
-    }
-
-    void OnSend(TEventPtr event, const TActorContext& context) override {
-        switch (event->EventID) {
-        case TEventData::EventID:
-            return context.ActorLib.SendSync(this, Move(event));
-        default:
-            return TBase::OnSend(Move(event), context);
         }
     }
 
