@@ -84,14 +84,22 @@ public:
         }
     }
 };
+#elif ARDUINO_ARCH_NRF5
+template <Uart& Port, long Baud>
+class THardwareSerial : public TBasicSerial<Uart, Port, Baud> {
+public:
+    static void Begin() {
+        TBasicSerial<Uart, Port, Baud>::Begin();
+    }
+};
 #else
 template <HardwareSerial& Port, long Baud, uint8_t RX = 0, uint8_t TX = 1>
 class THardwareSerial : public TBasicSerial<HardwareSerial, Port, Baud> {
 public:
 };
+#endif
 #ifndef Serial1
 #define Serial1 Serial
-#endif
 #endif
 
 template <typename SerialType>

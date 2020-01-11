@@ -39,6 +39,9 @@ public:
 #ifdef ARDUINO_ARCH_STM32F1
         return 3.3;
 #endif
+#ifdef ARDUINO_ARCH_NRF5
+        return 3.3;
+#endif
     }
 
     static constexpr unsigned long GetReadResolution() {
@@ -49,6 +52,9 @@ public:
         return 4096;
 #endif
 #ifdef ARDUINO_ARCH_STM32F1
+        return 4096;
+#endif
+#ifdef ARDUINO_ARCH_NRF5
         return 4096;
 #endif
     }
@@ -62,6 +68,9 @@ public:
 #endif
 #ifdef ARDUINO_ARCH_STM32F1
         return 65536;
+#endif
+#ifdef ARDUINO_ARCH_NRF5
+        return 256;
 #endif
     }
 

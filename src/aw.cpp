@@ -1,5 +1,7 @@
 #include <Arduino.h>
+#ifdef ARDUINO_ARCH_SAMD
 #include <Adafruit_SleepyDog.h>
+#endif
 #include <Wire.h>
 #include "aw.h"
 
@@ -39,11 +41,15 @@ void TActorContext::ResendAfter(TActor* recipient, TEventPtr event, TTime time) 
 
 TActorLib::TActorLib() {
 #ifndef _DEBUG_SLEEP
+#ifdef ARDUINO_ARCH_SAMD
     auto slept = Watchdog.sleep(10); // it will reset here first time after flash... don't know, why
+#endif
     SleepTime += TTime::MilliSeconds(slept);
 #endif
 #ifndef _DEBUG_WATCHDOG
+#ifdef ARDUINO_ARCH_SAMD
     Watchdog.enable(WatchdogTimeout.MilliSeconds());
+#endif
 #endif
 }
 
@@ -67,7 +73,9 @@ void TActorLib::Run() {
     TTime nextEvent = TTime::Max();
     TTime now;
 #ifndef _DEBUG_WATCHDOG
-        Watchdog.reset();
+#ifdef ARDUINO_ARCH_SAMD
+    Watchdog.reset();
+#endif
 #endif
     while (itActor != nullptr) {
         auto& events(itActor->Events);
@@ -116,16 +124,24 @@ void TActorLib::Run() {
         if (minSleep >= MinSleepPeriod) {
             auto sleep = minSleep.MilliSeconds();
 #ifndef _DEBUG_WATCHDOG
+#ifdef ARDUINO_ARCH_SAMD
             Watchdog.disable();
+#endif
 #endif
 #ifdef _DEBUG_SLEEP
             delay(sleep);
 #else
+#ifdef ARDUINO_ARCH_SAMD
             auto slept = Watchdog.sleep(sleep);
             SleepTime += TTime::MilliSeconds(slept);
+#else
+            sleep;
+#endif
 #endif
 #ifndef _DEBUG_WATCHDOG
+#ifdef ARDUINO_ARCH_SAMD
             Watchdog.enable(WatchdogTimeout.MilliSeconds());
+#endif
 #endif
         }
     }
@@ -143,7 +159,9 @@ void TActorLib::SendSync(TActor* recipient, TEventPtr event) {
     TActorContext context(*this);
     context.Now += SleepTime;
 #ifndef _DEBUG_WATCHDOG
+#ifdef ARDUINO_ARCH_SAMD
     Watchdog.reset();
+#endif
 #endif
     TTime start = TTime::Now();
     recipient->OnEvent(Move(event), context);
