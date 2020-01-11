@@ -43,8 +43,8 @@ TActorLib::TActorLib() {
 #ifndef _DEBUG_SLEEP
 #ifdef ARDUINO_ARCH_SAMD
     auto slept = Watchdog.sleep(10); // it will reset here first time after flash... don't know, why
-#endif
     SleepTime += TTime::MilliSeconds(slept);
+#endif
 #endif
 #ifndef _DEBUG_WATCHDOG
 #ifdef ARDUINO_ARCH_SAMD
@@ -135,7 +135,7 @@ void TActorLib::Run() {
             auto slept = Watchdog.sleep(sleep);
             SleepTime += TTime::MilliSeconds(slept);
 #else
-            sleep;
+            if (sleep) {}
 #endif
 #endif
 #ifndef _DEBUG_WATCHDOG
