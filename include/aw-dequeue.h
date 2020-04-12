@@ -98,7 +98,8 @@ public:
                     *it = Move(item);
                 }
         } else {
-            Serial.print("\nOVERFLOW!\n");
+            //Serial.print("\nOVERFLOW!\n");
+            AW::Reset("DEQUE OVERFLOW");
         }
         return it;
     }

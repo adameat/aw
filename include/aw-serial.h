@@ -98,9 +98,9 @@ class THardwareSerial : public TBasicSerial<HardwareSerial, Port, Baud> {
 public:
 };
 #endif
-#ifndef Serial1
-#define Serial1 Serial
-#endif
+//#ifndef Serial1
+//#define Serial1 Serial
+//#endif
 
 template <typename SerialType>
 class TSerialActor : public TActor {

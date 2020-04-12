@@ -7,6 +7,8 @@
 #include "aw-string-buf.h"
 #include "aw-time.h"
 
+extern Uart ConsoleSerial;
+
 namespace AW {
 
 class TOptionalValue {
@@ -15,15 +17,15 @@ public:
         : Value(NAN)
     {}
 
-    TOptionalValue(double value)
+    TOptionalValue(float value)
         : Value(value)
     {}
 
-    void SetValue(double value) {
+    void SetValue(float value) {
         Value = value;
     }
 
-    double GetValue() const {
+    float GetValue() const {
         return Value;
     }
 
@@ -35,16 +37,16 @@ public:
         return !isnan(Value);
     }
 
-    void operator =(double value) {
+    void operator =(float value) {
         SetValue(value);
     }
 
-    operator double() const {
+    operator float() const {
         return GetValue();
     }
 
 protected:
-    double Value;
+    float Value;
 };
 
 struct TSensorValue {
@@ -62,7 +64,7 @@ struct TSensorValue {
         return this == &other;
     }
 
-    void operator =(double value) {
+    void operator =(float value) {
         Value = value;
     }
 
@@ -74,9 +76,9 @@ struct TSensorValue {
 template <int WindowsSize = 60>
 struct TAveragedSensorValue : TSensorValue {
 public:
-    TAverage<double, WindowsSize> Average;
+    TAverage<float, WindowsSize> Average;
 
-    void operator =(double value) {
+    void operator =(float value) {
         Average.AddValue(value);
         Value = Average.GetValue();
     }
@@ -86,7 +88,7 @@ public:
         TSensorValue::Clear();
     }
 
-    void SetValue(double value) {
+    void SetValue(float value) {
         Average.SetValue(value);
         Value = value;
     }

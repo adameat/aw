@@ -7,7 +7,6 @@ namespace AW {
 template <typename Env = TDefaultEnvironment>
 class TSensorINA219 : public TActor, public TSensorSource {
     constexpr static bool UseChipCalculations = false;
-    constexpr static double DeviceSelfConsumption = 0.6;
 
     struct ERegisters {
         static constexpr uint8_t INA219_REG_CONFIG = 0x00;
@@ -89,7 +88,7 @@ class TSensorINA219 : public TActor, public TSensorSource {
 
     EStage Stage = EStage::Shot;
 
-    static constexpr TTime GetShotPeriod() { return TTime::MilliSeconds(69); }
+    static constexpr TTime GetShotPeriod() { return TTime::MilliSeconds(69); /* 69ms */ }
 
     static constexpr uint16_t ConfigValue =
         EFlags::INA219_CONFIG_BVOLTAGERANGE_16V |
@@ -104,8 +103,7 @@ public:
     TActor* Owner;
     TAveragedSensorValue<Env::AverageSensorWindow> Voltage;
     TAveragedSensorValue<Env::AverageSensorWindow> Current;
-    TAveragedSensorValue<Env::AverageSensorWindow> Power;
-
+    
     TSensorINA219(uint8_t address, TActor* owner, StringBuf name = "ina219")
         : Address(address)
         , Owner(owner)
@@ -113,7 +111,6 @@ public:
         Name = name;
         Voltage.Name = "voltage";
         Current.Name = "current";
-        Power.Name = "power";
     }
 
 protected:
@@ -153,7 +150,6 @@ protected:
             Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CONFIG, ConfigValue);
             return;
         }
-
         Stage = EStage::Shot;
         event->NotBefore = context.Now + Env::SensorsPeriod - GetShotPeriod();
         context.Resend(this, event.Release());
@@ -195,9 +191,8 @@ protected:
         }
 
         if (shunt_voltage == 0xffff || bus_voltage.OVF) { // not connected or overflowed
-            Voltage.SetValue(0);
-            Current.SetValue(0);
-            Power.SetValue(0);
+            Voltage.Clear();
+            Current.Clear();
             if (Env::SensorsCalibration) {
                 if (bus_voltage.OVF) {
                     if (config.PG < 3) {
@@ -208,7 +203,11 @@ protected:
                 }
             }
         } else {
-            Voltage = busValue;
+            if (bus_voltage.Value) {
+                Voltage = busValue;
+            } else {
+                Voltage.Clear();
+            }
 
             if (Env::SensorsCalibration) {
                 float shuntValue = ((int32_t)(int16_t)shunt_voltage << config.PG) * shuntLSB;
@@ -240,17 +239,15 @@ protected:
                 Env::Wire::ReadValue(Address, ERegisters::INA219_REG_CURRENT, current_value);
                 Env::Wire::ReadValue(Address, ERegisters::INA219_REG_POWER, power_value);
 
-                currentValue = current_value * currentLSB - DeviceSelfConsumption;
+                currentValue = current_value * currentLSB;
                 Current = currentValue;
                 float powerValue = power_value * powerLSB;
                 if (currentValue < 0) {
                     powerValue = -powerValue;
                 }
-                Power = powerValue;
-
+                
                 if (Env::Diagnostics) {
                     context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "current " << String(current_value, 16) << " (" << Current.Value << ")"));
-                    context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "power " << String(power_value, 16) << " (" << Power.Value << ")"));
                 }
 
                 if (Env::SensorsCalibration) {
@@ -269,9 +266,9 @@ protected:
                     }
                 }
             } else {
-                currentValue = shuntValue / RSHUNT - DeviceSelfConsumption;
+                currentValue = shuntValue / RSHUNT;
                 Current = currentValue;
-                Power = busValue * currentValue;
+                //Serial.print("current "); Serial.println(currentValue); //Serial.flush();
             }
         }
 
@@ -282,7 +279,6 @@ protected:
         Updated = context.Now;
 
         if (Env::SensorsSendValues) {
-            context.Send(this, Owner, new AW::TEventSensorData(*this, Power));
             context.Send(this, Owner, new AW::TEventSensorData(*this, Voltage));
             context.Send(this, Owner, new AW::TEventSensorData(*this, Current));
         }

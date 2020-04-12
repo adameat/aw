@@ -1,7 +1,5 @@
 #include <Arduino.h>
-#ifdef ARDUINO_ARCH_SAMD
 #include <Adafruit_SleepyDog.h>
-#endif
 #include <Wire.h>
 #include "aw.h"
 
@@ -47,13 +45,11 @@ TActorLib::TActorLib() {
 #endif
 #endif
 #ifndef _DEBUG_WATCHDOG
-#ifdef ARDUINO_ARCH_SAMD
     Watchdog.enable(WatchdogTimeout.MilliSeconds());
-#endif
 #endif
 }
 
-void TActorLib::Register(TActor* actor) {
+void TActorLib::Register(TActor* actor, TTime drift) {
     TActor* itActor = Actors;
     if (itActor == nullptr) {
         Actors = actor;
@@ -64,6 +60,9 @@ void TActorLib::Register(TActor* actor) {
         itActor->NextActor = actor;
     }
     TEventPtr bootstrapEvent = new TEventBootstrap;
+    if (drift.IsValid()) {
+        bootstrapEvent->NotBefore = TTime::Now() + SleepTime + drift;
+    }
     Send(actor, Move(bootstrapEvent));
 }
 
@@ -71,11 +70,8 @@ void TActorLib::Run() {
     TActorContext context(*this);
     TActor* itActor = Actors;
     TTime nextEvent = TTime::Max();
-    TTime now;
 #ifndef _DEBUG_WATCHDOG
-#ifdef ARDUINO_ARCH_SAMD
     Watchdog.reset();
-#endif
 #endif
     while (itActor != nullptr) {
         auto& events(itActor->Events);
@@ -83,7 +79,7 @@ void TActorLib::Run() {
         auto itEvent = events.begin();
         while (itEvent != events.end() && itEvent != end) {
             TEventPtr event = events.pop_value(itEvent);
-            TTime start = now = TTime::Now();
+            TTime start = TTime::Now();
             context.Now = start + SleepTime;
             if (context.Now < event->NotBefore) {
                 if (nextEvent > event->NotBefore) {
@@ -96,9 +92,7 @@ void TActorLib::Run() {
             } else {
                 nextEvent = TTime::Zero();
                 itActor->OnEvent(Move(event), context);
-                events.size();
-                now = TTime::Now();
-                TTime spent = now - start;
+                TTime spent = TTime::Now() - start;
                 itActor->BusyTime += spent;
                 BusyTime += spent;
                 if (itEvent != events.begin())
@@ -108,42 +102,39 @@ void TActorLib::Run() {
         itActor = itActor->NextActor;
     }
     if (nextEvent != TTime::Zero()) {
-        now += SleepTime;
+        TTime now = TTime::Now() + SleepTime;
         TTime minSleep;
         if (nextEvent > now) {
             minSleep = nextEvent - now;
         }
-        if (Sleeping) {
+        /*if (Sleeping) {
             if (minSleep < MinSleepPeriod) {
                 minSleep = MinSleepPeriod;
             }
-        }
+        }*/
         if (minSleep > MaxSleepPeriod) {
             minSleep = MaxSleepPeriod;
         }
         if (minSleep >= MinSleepPeriod) {
             auto sleep = minSleep.MilliSeconds();
 #ifndef _DEBUG_WATCHDOG
-#ifdef ARDUINO_ARCH_SAMD
-            Watchdog.disable();
-#endif
+//            Watchdog.disable();
 #endif
 #ifdef _DEBUG_SLEEP
             delay(sleep);
 #else
-#ifdef ARDUINO_ARCH_SAMD
             auto slept = Watchdog.sleep(sleep);
             SleepTime += TTime::MilliSeconds(slept);
-#else
-            if (sleep) {}
-#endif
+//            Serial.print("sleep "); Serial.print(sleep); Serial.print(" slept "); Serial.println(slept); Serial.flush();
 #endif
 #ifndef _DEBUG_WATCHDOG
-#ifdef ARDUINO_ARCH_SAMD
-            Watchdog.enable(WatchdogTimeout.MilliSeconds());
+//            Watchdog.enable(WatchdogTimeout.MilliSeconds());
 #endif
-#endif
+        } else {
+//            Serial.print("awake "); Serial.println(minSleep.MilliSeconds()); Serial.flush();
         }
+    } else {
+//        Serial.println("run"); Serial.flush();
     }
 }
 
@@ -159,9 +150,7 @@ void TActorLib::SendSync(TActor* recipient, TEventPtr event) {
     TActorContext context(*this);
     context.Now += SleepTime;
 #ifndef _DEBUG_WATCHDOG
-#ifdef ARDUINO_ARCH_SAMD
     Watchdog.reset();
-#endif
 #endif
     TTime start = TTime::Now();
     recipient->OnEvent(Move(event), context);

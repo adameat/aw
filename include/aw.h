@@ -3,7 +3,7 @@
 //#define _DEBUG
 
 #ifdef _DEBUG
-#define _DEBUG_HANG_ON_RESET
+//#define _DEBUG_HANG_ON_RESET
 #define _DEBUG_HEAP
 #define _DEBUG_SLEEP
 #define _DEBUG_WATCHDOG
@@ -17,6 +17,11 @@
 #include "aw-functional.h"
 #include "aw-pointer.h"
 #include "aw-vector.h"
+
+namespace AW {
+    extern void(*Reset)(StringBuf reason);
+}
+
 #include "aw-dequeue.h"
 #include "aw-list.h"
 #include "aw-time.h"
@@ -152,7 +157,7 @@ public:
 
 class TActorLib {
 public:
-    TTime MinSleepPeriod = TTime::MilliSeconds(128);
+    TTime MinSleepPeriod = TTime::MilliSeconds(1);
     TTime MaxSleepPeriod = TTime::MilliSeconds(4000);
     TTime WatchdogTimeout = TTime::MilliSeconds(8000);
     TTime BusyTime;
@@ -160,7 +165,7 @@ public:
     bool Sleeping = false;
 
     TActorLib();
-    void Register(TActor* actor);
+    void Register(TActor* actor, TTime drift = TTime());
     void Run();
     void Send(TActor* recipient, TEventPtr event);
     void SendImmediate(TActor* recipient, TEventPtr event);
@@ -628,7 +633,6 @@ inline uint16_t bswap(uint16_t v) {
 }
 
 void DefaultReset(StringBuf reason);
-extern void(*Reset)(StringBuf reason);
 StringBuf GetLastResetReason();
 
 } // namespace AW
