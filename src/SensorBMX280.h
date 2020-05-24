@@ -5,7 +5,7 @@
 namespace AW {
 
 template <typename Env = TDefaultEnvironment>
-class TSensorBMX280 : public TActor, public TSensorSource {
+class TSensorBMx280 : public TActor, public TSensorSource {
     enum EChips : uint8_t {
         Unknown = 0x00,
         BMP280 = 0x58,
@@ -133,7 +133,7 @@ class TSensorBMX280 : public TActor, public TSensorSource {
         uint8_t spi3w_en : 1;
 
         uint8_t get() {
-            return (t_sb << 5) | (filter << 3) | spi3w_en;
+            return (t_sb << 5) | (filter << 3);
         }
     };
 
@@ -196,7 +196,7 @@ public:
     TSensorValue Humidity;
     //static constexpr TSensorValue TSensor::* Values[] = { &TSensor::Temperature, &TSensor::Pressure, &TSensor::Humidity };
 
-    TSensorBMX280(uint8_t address, TActor* owner, StringBuf name = "bmx280")
+    TSensorBMx280(uint8_t address, TActor* owner, String name = "BMx280")
         : Address(address)
         , Owner(owner)
     {
@@ -204,6 +204,19 @@ public:
         Temperature.Name = "temperature";
         Pressure.Name = "pressure";
         Humidity.Name = "humidity";
+    }
+
+    static StringBuf GetSensorType(uint8_t address) {
+        EChips chipID = EChips::Unknown;
+        if (Env::Wire::ReadValue(address, ERegisters::REGISTER_CHIPID, chipID)) {
+            if (chipID == EChips::BME280) {
+                return "bme280";
+            }
+            if (chipID == EChips::BMP280) {
+                return "bmp280";
+            }
+        }
+        return StringBuf();
     }
 
 protected:
@@ -339,6 +352,10 @@ protected:
     }
 
     void OnReceive(AW::TUniquePtr<AW::TEventReceive> event, const AW::TActorContext& context) {
+        ulong start;
+        if (Env::Diagnostics) {
+            start = micros();
+        }
         uint8_t status;
         if (Env::Wire::ReadValue(Address, ERegisters::REGISTER_STATUS, status)) {
             if ((status & 1) == 0) {
@@ -431,6 +448,10 @@ protected:
 
         event->NotBefore = context.Now + Env::SensorsPeriod;
         context.Resend(this, event.Release());
+
+        if (Env::Diagnostics) {
+            context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "receive elapsed " << (micros() - start) << "us"));
+        }
     }
 };
 

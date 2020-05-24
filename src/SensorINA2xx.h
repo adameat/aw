@@ -5,16 +5,16 @@
 namespace AW {
 
 template <typename Env = TDefaultEnvironment>
-class TSensorINA219 : public TActor, public TSensorSource {
+class TSensorINA2xx : public TActor, public TSensorSource {
     constexpr static bool UseChipCalculations = false;
 
     struct ERegisters {
-        static constexpr uint8_t INA219_REG_CONFIG = 0x00;
-        static constexpr uint8_t INA219_REG_SHUNTVOLTAGE = 0x01;
-        static constexpr uint8_t INA219_REG_BUSVOLTAGE = 0x02;
-        static constexpr uint8_t INA219_REG_POWER = 0x03;
-        static constexpr uint8_t INA219_REG_CURRENT = 0x04;
-        static constexpr uint8_t INA219_REG_CALIBRATION = 0x05;
+        static constexpr uint8_t INA2xx_REG_CONFIG = 0x00;
+        static constexpr uint8_t INA2xx_REG_SHUNTVOLTAGE = 0x01;
+        static constexpr uint8_t INA2xx_REG_BUSVOLTAGE = 0x02;
+        static constexpr uint8_t INA2xx_REG_POWER = 0x03;
+        static constexpr uint8_t INA2xx_REG_CURRENT = 0x04;
+        static constexpr uint8_t INA2xx_REG_CALIBRATION = 0x05;
         static constexpr uint8_t INA2xx_REG_MANUFACTURER_ID = 0xFE;
         static constexpr uint8_t INA2xx_REG_DIE_ID = 0xFF;
     };
@@ -63,10 +63,52 @@ class TSensorINA219 : public TActor, public TSensorSource {
         INA219_CONFIG_MODE_SANDBVOLT_CONTINUOUS = 0x0007,
         /*=========================================================================*/
 
+        INA226_CONFIG_RESET = 0x8000,  // Reset Bit
 
+        INA226_CONFIG_D14 = 0x4000,
+
+        INA226_CONFIG_AVG_MASK = 0x0E00, // Averaging Mask
+        INA226_CONFIG_AVG_1 = 0x0000, // 1 average
+        INA226_CONFIG_AVG_4 = 0x0200, // 4 average
+        INA226_CONFIG_AVG_16 = 0x0400, // 16 average
+        INA226_CONFIG_AVG_64 = 0x0600, // 64 average
+        INA226_CONFIG_AVG_128 = 0x0800, // 128 average
+        INA226_CONFIG_AVG_256 = 0x0A00, // 256 average
+        INA226_CONFIG_AVG_512 = 0x0C00, // 512 average
+        INA226_CONFIG_AVG_1024 = 0x0E00, // 1024 average
+
+        INA226_CONFIG_VBUSCT_MASK = 0x01C0, // Bus Voltage Conversion Time
+        INA226_CONFIG_VBUSCT_140US = 0x0000,
+        INA226_CONFIG_VBUSCT_204US = 0x0040,
+        INA226_CONFIG_VBUSCT_332US = 0x0080,
+        INA226_CONFIG_VBUSCT_588US = 0x00C0,
+        INA226_CONFIG_VBUSCT_1100US = 0x0100,
+        INA226_CONFIG_VBUSCT_2116US = 0x0140,
+        INA226_CONFIG_VBUSCT_4156US = 0x0180,
+        INA226_CONFIG_VBUSCT_8244US = 0x01C0,
+
+        INA226_CONFIG_VSHCT_MASK = 0x0038, // Shunt Voltage Conversion Time
+        INA226_CONFIG_VSHCT_140US = 0x0000,
+        INA226_CONFIG_VSHCT_204US = 0x0008,
+        INA226_CONFIG_VSHCT_332US = 0x0010,
+        INA226_CONFIG_VSHCT_588US = 0x0018,
+        INA226_CONFIG_VSHCT_1100US = 0x0020,
+        INA226_CONFIG_VSHCT_2116US = 0x0028,
+        INA226_CONFIG_VSHCT_4156US = 0x0030,
+        INA226_CONFIG_VSHCT_8244US = 0x0038,
+
+        INA226_CONFIG_MODE_MASK = 0x0007,  // Operating Mode Mask
+        INA226_CONFIG_MODE_POWERDOWN = 0x0000,
+        INA226_CONFIG_MODE_SVOLT_TRIGGERED = 0x0001,
+        INA226_CONFIG_MODE_BVOLT_TRIGGERED = 0x0002,
+        INA226_CONFIG_MODE_SANDBVOLT_TRIGGERED = 0x0003,
+        INA226_CONFIG_MODE_ADCOFF = 0x0004,
+        INA226_CONFIG_MODE_SVOLT_CONTINUOUS = 0x0005,
+        INA226_CONFIG_MODE_BVOLT_CONTINUOUS = 0x0006,
+        INA226_CONFIG_MODE_SANDBVOLT_CONTINUOUS = 0x0007,
     };
 
-    struct TConfigRegister {
+    struct TConfigRegister219 {
         uint16_t Mode : 3;
         uint16_t SADC : 4;
         uint16_t BADC : 4;
@@ -76,7 +118,7 @@ class TSensorINA219 : public TActor, public TSensorSource {
         uint16_t RESET : 1;
     };
 
-    struct TBusVoltageRegister {
+    struct TBusVoltageRegister219 {
         int16_t OVF : 1;
         int16_t CNVR : 1;
         int16_t RSRVD : 1;
@@ -92,21 +134,15 @@ class TSensorINA219 : public TActor, public TSensorSource {
 
     static constexpr TTime GetShotPeriod() { return TTime::MilliSeconds(69); /* 69ms */ }
 
-    static constexpr uint16_t ConfigValue =
-        EFlags::INA219_CONFIG_BVOLTAGERANGE_16V |
-        EFlags::INA219_CONFIG_GAIN_1_40MV |
-        EFlags::INA219_CONFIG_BADCRES_12BIT |
-        EFlags::INA219_CONFIG_SADCRES_12BIT_128S_69MS |
-        //EFlags::INA219_CONFIG_MODE_SANDBVOLT_TRIGGERED;
-        EFlags::INA219_CONFIG_MODE_SANDBVOLT_CONTINUOUS;
-
 public:
-    uint8_t Address = 0x40;
+    uint8_t Address;
+    uint16_t ChipId = 0;
+    uint16_t ConfigValue;
     TActor* Owner;
-    TAveragedSensorValue<Env::AverageSensorWindow> Voltage;
-    TAveragedSensorValue<Env::AverageSensorWindow> Current;
+    TAveragedSensorValue<60000 / Env::SensorsPeriod.MilliSeconds()> Voltage;
+    TAveragedSensorValue<60000 / Env::SensorsPeriod.MilliSeconds()> Current;
 
-    TSensorINA219(uint8_t address, TActor* owner, String name = "ina219")
+    TSensorINA2xx(uint8_t address, TActor* owner, String name = "INA2xx")
         : Address(address)
         , Owner(owner)
     {
@@ -118,12 +154,17 @@ public:
     static StringBuf GetSensorType(uint8_t address) {
         uint16_t manufacturer_id = 0;
         if (Env::Wire::ReadValue(address, ERegisters::INA2xx_REG_MANUFACTURER_ID, manufacturer_id)) {
-            if (manufacturer_id == 0x5449) {
-                return "ina226";
+            if (manufacturer_id == 0x5449) { // 'TI' Texas Instruments
+                uint16_t die_id = 0;
+                if (Env::Wire::ReadValue(address, ERegisters::INA2xx_REG_DIE_ID, die_id)) {
+                    if (die_id == 0x2260) { // INA-226
+                        return "ina226";
+                    }
+                }
             }
         }
-        uint16_t config_value = 0; // INA219_REG_CONFIG
-        if (Env::Wire::ReadValue(address, ERegisters::INA219_REG_CONFIG, config_value)) {
+        uint16_t config_value = 0; // INA2xx_REG_CONFIG
+        if (Env::Wire::ReadValue(address, ERegisters::INA2xx_REG_CONFIG, config_value)) {
             return "ina219";
         }
         return StringBuf();
@@ -135,35 +176,80 @@ protected:
         case TEventBootstrap::EventID:
             return OnBootstrap(static_cast<TEventBootstrap*>(event.Release()), context);
         case TEventReceive::EventID:
-            return OnReceive(static_cast<TEventReceive*>(event.Release()), context);
+            switch (ChipId) {
+                case 0x2190:
+                    return OnReceive219(static_cast<TEventReceive*>(event.Release()), context);
+                case 0x2260:
+                    return OnReceive226(static_cast<TEventReceive*>(event.Release()), context);
+            }
         default:
             break;
         }
     }
 
     void OnBootstrap(TUniquePtr<TEventBootstrap>, const TActorContext& context) {
-        if (Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CONFIG, ConfigValue)) {
+        if (!Env::Wire::ReadValue(Address, ERegisters::INA2xx_REG_DIE_ID, ChipId)) {
+            ChipId = 0x2190;
+        }
+
+        switch (ChipId) {
+            case 0xb40a: // ? have this value in my INA-219
+                ChipId = 0x2190;
+                break;
+        }
+
+        switch (ChipId) {
+            case 0x2190:
+                ConfigValue =
+                EFlags::INA219_CONFIG_BVOLTAGERANGE_16V |
+                EFlags::INA219_CONFIG_GAIN_1_40MV |
+                EFlags::INA219_CONFIG_BADCRES_12BIT |
+                EFlags::INA219_CONFIG_SADCRES_12BIT_128S_69MS |
+                //EFlags::INA219_CONFIG_MODE_SANDBVOLT_TRIGGERED;
+                EFlags::INA219_CONFIG_MODE_SANDBVOLT_CONTINUOUS;
+                break;
+            case 0x2260:
+                ConfigValue =
+                EFlags::INA226_CONFIG_D14 |
+                EFlags::INA226_CONFIG_AVG_1 |
+                EFlags::INA226_CONFIG_VBUSCT_204US |
+                EFlags::INA226_CONFIG_VSHCT_204US |
+                EFlags::INA226_CONFIG_MODE_SANDBVOLT_TRIGGERED;
+                break;
+        }
+
+        if (Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CONFIG, ConfigValue)) {
             if (UseChipCalculations) {
                 static constexpr uint16_t CalibrationValue = 32768;
-                Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CALIBRATION, CalibrationValue);
+                Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CALIBRATION, CalibrationValue);
             }
-            context.Send(this, this, new AW::TEventReceive(context.Now + Env::SensorsPeriod));
+            context.Send(this, this, new AW::TEventReceive());
             if (Env::Diagnostics) {
-                context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "INA219 on " << String(Address, 16)));
+                switch (ChipId) {
+                case 0x2190:
+                    context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "INA219 on " << String(Address, 16)));
+                    break;
+                case 0x2260:
+                    context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "INA226 on " << String(Address, 16)));
+                    break;
+                default:
+                    context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "INA??? on " << String(Address, 16)));
+                    break;
+                }
             }
         } else {
             if (Env::Diagnostics) {
-                context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "NO INA219 found"));
+                context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "NO INA2xx found"));
             }
         }
     }
 
-    void OnReceive(AW::TUniquePtr<AW::TEventReceive> event, const AW::TActorContext& context) {
+    void OnReceive219(AW::TUniquePtr<AW::TEventReceive> event, const AW::TActorContext& context) {
         if (Stage == EStage::Shot) {
             Stage = EStage::Data;
             event->NotBefore = context.Now + GetShotPeriod();
             context.Resend(this, event.Release());
-            Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CONFIG, ConfigValue);
+            Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CONFIG, ConfigValue);
             return;
         }
         ulong start;
@@ -175,13 +261,13 @@ protected:
         context.Resend(this, event.Release());
 
         uint16_t config_value = 0; // INA219_REG_CONFIG
-        TConfigRegister& config(*reinterpret_cast<TConfigRegister*>(&config_value));
+        TConfigRegister219& config(*reinterpret_cast<TConfigRegister219*>(&config_value));
 
         uint16_t shunt_voltage = 0;
         uint16_t bus_voltage_value = 0;
-        TBusVoltageRegister& bus_voltage(*reinterpret_cast<TBusVoltageRegister*>(&bus_voltage_value));
+        TBusVoltageRegister219& bus_voltage(*reinterpret_cast<TBusVoltageRegister219*>(&bus_voltage_value));
 
-        Env::Wire::ReadValue(Address, ERegisters::INA219_REG_CONFIG, config_value);
+        Env::Wire::ReadValue(Address, ERegisters::INA2xx_REG_CONFIG, config_value);
 
         if (Env::Diagnostics) {
             context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "config " << String(config_value, 16)));
@@ -199,8 +285,8 @@ protected:
         static constexpr float shuntLSB = 0.010; // mV
         static constexpr float voltageLSB = 0.004; // V
 
-        Env::Wire::ReadValue(Address, ERegisters::INA219_REG_SHUNTVOLTAGE, shunt_voltage);
-        Env::Wire::ReadValue(Address, ERegisters::INA219_REG_BUSVOLTAGE, bus_voltage_value);
+        Env::Wire::ReadValue(Address, ERegisters::INA2xx_REG_SHUNTVOLTAGE, shunt_voltage);
+        Env::Wire::ReadValue(Address, ERegisters::INA2xx_REG_BUSVOLTAGE, bus_voltage_value);
 
         float busValue = bus_voltage.Value * voltageLSB;
         float shuntValue = ((int32_t)(int16_t)shunt_voltage << config.PG) * shuntLSB;
@@ -217,7 +303,7 @@ protected:
                 if (bus_voltage.OVF) {
                     if (config.PG < 3) {
                         ++config.PG;
-                        Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CONFIG, config_value);
+                        Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CONFIG, config_value);
                         return;
                     }
                 }
@@ -235,7 +321,7 @@ protected:
                     float maxShuntValue = ((int32_t)(int16_t)0x7fff << config.PG) * shuntLSB;
                     if (shuntValue < 0.50 * maxShuntValue) {
                         --config.PG;
-                        Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CONFIG, config_value);
+                        Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CONFIG, config_value);
                     }
                 }
             }
@@ -247,7 +333,7 @@ protected:
                 int16_t current_value = 0;
                 int16_t power_value = 0;
 
-                Env::Wire::ReadValue(Address, ERegisters::INA219_REG_CALIBRATION, calibration_value);
+                Env::Wire::ReadValue(Address, ERegisters::INA2xx_REG_CALIBRATION, calibration_value);
                 if (Env::Diagnostics) {
                     context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "calibration " << String(calibration_value, 16)));
                 }
@@ -256,8 +342,8 @@ protected:
                 float currentLSB = 40.96 / (calibration_value * RSHUNT); // mA
                 float powerLSB = currentLSB * 20; // mW
 
-                Env::Wire::ReadValue(Address, ERegisters::INA219_REG_CURRENT, current_value);
-                Env::Wire::ReadValue(Address, ERegisters::INA219_REG_POWER, power_value);
+                Env::Wire::ReadValue(Address, ERegisters::INA2xx_REG_CURRENT, current_value);
+                Env::Wire::ReadValue(Address, ERegisters::INA2xx_REG_POWER, power_value);
 
                 currentValue = current_value * currentLSB;
                 Current = currentValue;
@@ -276,12 +362,12 @@ protected:
                     if (abs(currentValue) < 0.40 * maxCurrentValue) {
                         if (calibration_value <= (0xffff - calibration_value_step * 2)) {
                             calibration_value += calibration_value_step;
-                            Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CALIBRATION, calibration_value);
+                            Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CALIBRATION, calibration_value);
                         }
                     } else if (abs(currentValue) > 0.90 * maxCurrentValue) {
                         if (calibration_value >= calibration_value_step * 2) {
                             calibration_value -= calibration_value_step;
-                            Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CALIBRATION, calibration_value);
+                            Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CALIBRATION, calibration_value);
                         }
                     }
                 }
@@ -294,7 +380,72 @@ protected:
 
         uint16_t configValue = EFlags::INA219_CONFIG_MODE_POWERDOWN;
 
-        Env::Wire::WriteValue(Address, ERegisters::INA219_REG_CONFIG, configValue);
+        Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CONFIG, configValue);
+
+        Updated = context.Now;
+
+        if (Env::SensorsSendValues) {
+            context.Send(this, Owner, new AW::TEventSensorData(*this, Voltage));
+            context.Send(this, Owner, new AW::TEventSensorData(*this, Current));
+        }
+        if (Env::Diagnostics) {
+            context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "receive elapsed " << (micros() - start) << "us"));
+        }
+    }
+
+    void OnReceive226(AW::TUniquePtr<AW::TEventReceive> event, const AW::TActorContext& context) {
+        if (Stage == EStage::Shot) {
+            Stage = EStage::Data;
+            event->NotBefore = context.Now + GetShotPeriod();
+            context.Resend(this, event.Release());
+            Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CONFIG, ConfigValue);
+            return;
+        }
+        ulong start;
+        if (Env::Diagnostics) {
+            start = micros();
+        }
+        Stage = EStage::Shot;
+        event->NotBefore = context.Now + Env::SensorsPeriod - GetShotPeriod();
+        context.Resend(this, event.Release());
+
+        int16_t shunt_voltage = 0;
+        uint16_t bus_voltage = 0;
+
+        static constexpr float RSHUNT = 0.02; // ohms
+        static constexpr float shuntLSB = 0.0025; // mV
+        static constexpr float voltageLSB = 0.00125; // V
+
+        Env::Wire::ReadValue(Address, ERegisters::INA2xx_REG_SHUNTVOLTAGE, shunt_voltage);
+        Env::Wire::ReadValue(Address, ERegisters::INA2xx_REG_BUSVOLTAGE, bus_voltage);
+
+        float busValue = float(bus_voltage) * voltageLSB;
+        float shuntValue = float(shunt_voltage) * shuntLSB;
+
+        if (Env::Diagnostics) {
+            context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "bus " << String(bus_voltage, 16) << " (" << busValue << ")"));
+            context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "shunt " << String(shunt_voltage, 16) << " (" << shuntValue << ")"));
+        }
+
+        if (shunt_voltage == 0xffff) { // not connected or overflowed
+            Voltage.Clear();
+            Current.Clear();
+        } else {
+            if (busValue) {
+                Voltage = busValue;
+            } else {
+                Voltage.Clear();
+            }
+
+            float currentValue;
+
+            currentValue = shuntValue / RSHUNT;
+            Current = currentValue;
+        }
+
+        uint16_t configValue = EFlags::INA226_CONFIG_MODE_POWERDOWN;
+
+        Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CONFIG, configValue);
 
         Updated = context.Now;
 

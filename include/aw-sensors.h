@@ -95,7 +95,7 @@ public:
 };
 
 struct TSensorSource {
-    StringBuf Name;
+    String Name;
     TTime Updated;
 
     bool operator ==(const TSensorSource& other) const {
@@ -153,12 +153,10 @@ class TSensorActor : public TActor, public TConsoleActor<Env> {
 public:
     using TConsoleActor<Env>::Console;
     TSyncSerialActor<THardwareSerial<Serial1, Env::BluetoothBaudRate>> Channel;
-    TBluetoothActor<TBluetoothZS040> Bluetooth;
     TDigitalPin PowerBluetooth;
     TDigitalPin PowerI2C;
     TDigitalPin SleepLED;
     TLed Led;
-    bool Connected = false;
     bool Feed = false;
     static constexpr TTime DefaultPeriod = Env::DefaultPeriod;
     TTime Period = DefaultPeriod;
@@ -174,7 +172,6 @@ public:
     TSensorActor()
         : TConsoleActor<Env>(this)
         , Channel(this)
-        , Bluetooth(this, &Channel)
         , PowerBluetooth(8)
         , PowerI2C(9)
         , SleepLED(7)
@@ -283,9 +280,9 @@ public:
             context.ActorLib.Register(&Console);
         }
         context.ActorLib.Register(&Channel);
-        context.ActorLib.Register(&Bluetooth);
+        //context.ActorLib.Register(&Bluetooth);
         if (Env::HaveConsole) {
-            context.Send(this, &Console, new TEventData("hi"));
+            context.Send(this, &Console, new TEventData("\nhi"));
         } else {
             //context.Send(this, &Channel, new TEventData("hi"));
         }
@@ -297,19 +294,17 @@ public:
     void SensorData(TUniquePtr<TEventData> event, const TActorContext& context) {
         Led = true;
         ConnectAliveTime = context.Now;
-        const auto& data(event->Data);
+        StringBuf data(event->Data);
+        while (!data.empty() && (data[0] <= 32 || data[0] > 127)) {
+            data = data.substr(1);
+        }
         if (OnCommand(data, context)) {
             // do nothing
         } else if (data == "OK") {
             // do nothing
         } else if (data == "PING") {
             context.Send(this, event->Sender, new TEventData("PONG"));
-        } else if (data == "CONNECTED") {
-            Connected = true;
-            Feed = false;
-            Channel.PurgeEvents(TEventData::EventID);
-        } else if (data.starts_with("+")) {
-            Connected = false;
+        } else if (data.ends_with("CONNECTED") || data.starts_with("+")) {
             Feed = false;
             Period = TTime::Seconds(30);
             Channel.PurgeEvents(TEventData::EventID);
@@ -343,10 +338,6 @@ public:
                 reason = command;
             }
             Reset(reason);
-        } else if (data.starts_with("BT")) {
-            StringBuf command(data);
-            command.NextToken(' ');
-            context.Send(this, &Channel, new TEventData(command));
         } else {
             context.Send(this, event->Sender, new TEventData(StringStream() << "WRONG " << data));
         }
@@ -437,11 +428,11 @@ public:
             if (Feed) {
                 //ConnectAliveTime = context.Now;
                 SendSensors(context);
-            } else {
+            }/* else {
                 if (!Connected) {
                     context.Send(this, &Channel, new TEventData("AT"));
                 }
-            }
+            }*/
         }
         OnReceive(context);
         event->NotBefore = context.Now + Period;
@@ -462,6 +453,22 @@ public:
             delayMicroseconds(50000);
         }
         AW::DefaultReset(reason);
+    }
+
+    template <typename SensorType>
+    SensorType* DetectSensor(uint8_t address) {
+        StringBuf type = SensorType::GetSensorType(address);
+        if (!type.empty()) {
+            String name = StringStream() << type << '@' << String(address,16);
+            SensorType* sensor = new SensorType(address, this, name);
+            if (Env::HaveConsole) {
+                ActorLib->Send(&Console, new TEventData(StringStream() << "Found " << name));
+            }
+            ActorLib->Register(sensor);
+            return sensor;
+        } else {
+            return nullptr;
+        }
     }
 };
 

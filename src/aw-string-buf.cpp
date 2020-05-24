@@ -36,6 +36,12 @@ bool StringBuf::starts_with(const StringBuf& s) const {
     return sz <= size() && strncmp(Begin, s.Begin, sz) == 0;
 }
 
+bool StringBuf::ends_with(const StringBuf& s) const {
+    size_type sz = s.size();
+    size_type sm = size();
+    return sz <= sm && strncmp(Begin + (sm - sz), s.Begin, sz) == 0;
+}
+
 StringBuf::size_type StringBuf::find(char c) const {
     for (size_type p = 0; p < size(); ++p) {
         if ((*this)[p] == c) {

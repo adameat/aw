@@ -74,6 +74,7 @@ public:
 
     StringBuf substr(size_type pos, size_type spos = npos) const;
     bool starts_with(const StringBuf& s) const;
+    bool ends_with(const StringBuf& s) const;
     size_type find(char c) const;
     unsigned char touchar() const;
     int toint() const;

@@ -197,7 +197,9 @@ static volatile char LastResetReason[16];
 #endif
 
 void DefaultReset(StringBuf reason) {
-    memcpy(const_cast<char*>(LastResetReason), reason.begin(), min(reason.size(), (StringBuf::size_type)(sizeof(LastResetReason) - 1)));
+    auto size = min(reason.size(), (StringBuf::size_type)(sizeof(LastResetReason) - 1));
+    memcpy(const_cast<char*>(LastResetReason), reason.begin(), size);
+    LastResetReason[size] = 0;
 #ifdef _DEBUG_HANG_ON_RESET
 #ifndef _DEBUG_WATCHDOG
     Watchdog.disable();
@@ -235,7 +237,13 @@ void DefaultReset(StringBuf reason) {
 }
 
 StringBuf GetLastResetReason() {
-    return const_cast<const char*>(LastResetReason);
+    if (LastResetReason[0] != 0) {
+        StringBuf reason(const_cast<const char*>(LastResetReason));
+        if (reason.size() <= 16) {
+            return const_cast<const char*>(LastResetReason);
+        }
+    }
+    return "UNKNOWN";
 }
 
 void(*Reset)(StringBuf reason) = &DefaultReset;
