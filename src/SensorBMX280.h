@@ -305,21 +305,21 @@ protected:
     }
 
     void OnSleep(AW::TUniquePtr<AW::TEventSleep> event, const AW::TActorContext& context) {
-        /*sensor_mode mode = MODE_SLEEP;
+        sensor_mode mode = MODE_SLEEP;
         ctrl_meas _measReg;
         _measReg.mode = mode;
         _measReg.osrs_t = tempSampling;
         _measReg.osrs_p = pressSampling;
-        Env::Wire::WriteValue(Address, REGISTER_CONTROL, _measReg.get());*/
+        Env::Wire::WriteValue(Address, REGISTER_CONTROL, _measReg.get());
     }
 
     void OnWakeUp(AW::TUniquePtr<AW::TEventWakeUp> event, const AW::TActorContext& context) {
-        /*sensor_mode mode = MODE_NORMAL;
+        sensor_mode mode = MODE_NORMAL;
         ctrl_meas _measReg;
         _measReg.mode = mode;
         _measReg.osrs_t = tempSampling;
         _measReg.osrs_p = pressSampling;
-        Env::Wire::WriteValue(Address, REGISTER_CONTROL, _measReg.get());*/
+        Env::Wire::WriteValue(Address, REGISTER_CONTROL, _measReg.get());
     }
 
     void ReadCoefficients(CalibData& data) {

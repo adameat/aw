@@ -84,6 +84,20 @@ public:
         }
     }
 };
+
+template <Uart& Port, long Baud, uint8_t RX = 0, uint8_t TX = 1>
+class THardwareSerialAlt : public TBasicSerial<Uart, Port, Baud> {
+public:
+    static void Begin() {
+        TBasicSerial<Uart, Port, Baud>::Begin();
+        if (RX != 0) {
+            pinPeripheral(RX, PIO_SERCOM_ALT);
+        }
+        if (TX != 1) {
+            pinPeripheral(TX, PIO_SERCOM_ALT);
+        }
+    }
+};
 #elif ARDUINO_ARCH_NRF5
 template <Uart& Port, long Baud>
 class THardwareSerial : public TBasicSerial<Uart, Port, Baud> {
