@@ -13,7 +13,7 @@ template <typename Env = TDefaultEnvironment>
 class TSensorMemory : public TActor, public TSensorSource {
 public:
     TActor* Owner;
-    TSensorValue Free;
+    TSensorValueULong Free;
 
     TSensorMemory(TActor* owner, StringBuf name = "memory")
         : Owner(owner)

@@ -11,13 +11,19 @@ extern Uart ConsoleSerial;
 
 namespace AW {
 
-class TOptionalValue {
+template <typename TBaseType>
+class TOptionalValueBase;
+
+template <>
+class TOptionalValueBase<float> {
 public:
-    TOptionalValue()
+    using TUnderlyingType = float;
+
+    TOptionalValueBase()
         : Value(NAN)
     {}
 
-    TOptionalValue(float value)
+    TOptionalValueBase(float value)
         : Value(value)
     {}
 
@@ -49,22 +55,113 @@ protected:
     float Value;
 };
 
+template <>
+class TOptionalValueBase<fixed3_t> {
+public:
+    using TUnderlyingType = fixed3_t;
+
+    TOptionalValueBase()
+    {
+        Value.setnan();
+    }
+
+    TOptionalValueBase(fixed3_t value)
+        : Value(value)
+    {}
+
+    void SetValue(fixed3_t value) {
+        Value = value;
+    }
+
+    fixed3_t GetValue() const {
+        return Value;
+    }
+
+    void Clear() {
+        Value.setnan();
+    }
+
+    bool IsValid() const {
+        return !Value.isnan();
+    }
+
+    void operator =(fixed3_t value) {
+        SetValue(value);
+    }
+
+    operator fixed3_t() const {
+        return GetValue();
+    }
+
+protected:
+    fixed3_t Value;
+};
+
+template <>
+class TOptionalValueBase<unsigned long> {
+public:
+    using TUnderlyingType = unsigned long;
+
+    TOptionalValueBase()
+    {
+        Value = ~0UL;
+    }
+
+    TOptionalValueBase(unsigned long value)
+        : Value(value)
+    {}
+
+    void SetValue(unsigned long value) {
+        Value = value;
+    }
+
+    unsigned long GetValue() const {
+        return Value;
+    }
+
+    void Clear() {
+        Value = ~0UL;
+    }
+
+    bool IsValid() const {
+        return Value != ~0UL;
+    }
+
+    void operator =(unsigned long value) {
+        SetValue(value);
+    }
+
+    operator unsigned long() const {
+        return GetValue();
+    }
+
+protected:
+    unsigned long Value;
+};
+
+using TOptionalValue = TOptionalValueBase<fixed3_t>;
+
+template <typename ValueType>
 struct TSensorValue {
     StringBuf Name;
-    TOptionalValue Value;
+    ValueType Value;
 
     TSensorValue() = default;
 
-    TSensorValue(StringBuf name, TOptionalValue value = TOptionalValue())
+    TSensorValue(StringBuf name, ValueType value = ValueType())
         : Name(name)
         , Value(value)
     {}
 
-    bool operator ==(const TSensorValue& other) const {
+    bool operator ==(const TSensorValue<ValueType>& other) const {
         return this == &other;
     }
 
-    void operator =(float value) {
+    void operator =(typename ValueType::TUnderlyingType value) {
+        Value = value;
+    }
+
+    void SetValue(typename ValueType::TUnderlyingType value) {
         Value = value;
     }
 
@@ -73,24 +170,29 @@ struct TSensorValue {
     }
 };
 
-template <int WindowsSize = 60>
-struct TAveragedSensorValue : TSensorValue {
-public:
-    TAverage<float, WindowsSize> Average;
+using TSensorValueFixed3 = TSensorValue<TOptionalValueBase<fixed3_t>>;
+using TSensorValueFloat = TSensorValue<TOptionalValueBase<float>>;
+using TSensorValueULong = TSensorValue<TOptionalValueBase<unsigned long>>;
 
-    void operator =(float value) {
+template <typename ValueType, int WindowsSize = 60>
+struct TAveragedSensorValue : TSensorValue<TOptionalValueBase<ValueType>> {
+public:
+    using TBase = TSensorValue<TOptionalValueBase<ValueType>>;
+    TAverage<ValueType, WindowsSize> Average;
+
+    void operator =(ValueType value) {
         Average.AddValue(value);
-        Value = Average.GetValue();
+        TBase::SetValue(Average.GetValue());
     }
 
     void Clear() {
         Average.Clear();
-        TSensorValue::Clear();
+        TBase::Clear();
     }
 
-    void SetValue(float value) {
+    void SetValue(ValueType value) {
         Average.SetValue(value);
-        Value = value;
+        TBase::SetValue(value);
     }
 };
 
@@ -103,18 +205,26 @@ struct TSensorSource {
     }
 };
 
-template <size_t Count> struct TSensor : TSensorSource {
-    TSensorValue Values[Count];
-};
+// template <size_t Count> struct TSensor : TSensorSource {
+//     TSensorValue Values[Count];
+// };
 
 struct TEventSensorData : TBasicEvent<TEventSensorData> {
     constexpr static TEventID EventID = TEventID::EventSensorData;
     const TSensorSource& Source;
-    TSensorValue& Value;
+    StringBuf Name;
+    String Value;
 
-    TEventSensorData(const TSensorSource& source, TSensorValue& value)
+    TEventSensorData(const TSensorSource& source, StringBuf name, String value)
         : Source(source)
-        , Value(value) {}
+        , Name(Move(name))
+        , Value(Move(value))
+    {}
+
+    template <typename TSensorValue>
+    TEventSensorData(const TSensorSource& source, const TSensorValue& sensorValue)
+        : TEventSensorData(source, sensorValue.Name, sensorValue.Value.GetValue())
+    {}
 };
 
 struct TEventSensorMessage : TBasicEvent<TEventSensorMessage> {
@@ -164,9 +274,9 @@ public:
     TTime LastReportTime;
     TTime ConnectAliveTime;
     TSensorSource TimeSource;
-    TSensorValue TimeTotal;
-    TSensorValue TimeBusy;
-    TSensorValue TimeSleep;
+    TSensorValueULong TimeTotal;
+    TSensorValueULong TimeBusy;
+    TSensorValueULong TimeSleep;
     TActorLib* ActorLib;
 
     TSensorActor()
@@ -347,7 +457,8 @@ public:
         Led = false;
     }
 
-    void SendSensorValue(const TActorContext& context, StringBuf sourceName, StringBuf valueName, double value) {
+    template <typename ValueType>
+    void SendSensorValue(const TActorContext& context, StringBuf sourceName, StringBuf valueName, ValueType value) {
         StringStream stream;
         stream << "DATA " << sourceName << '.' << valueName << ' ' << value << " OK";
         if (Env::UseSum) {
@@ -365,18 +476,19 @@ public:
         context.Send(this, &Channel, new TEventData(stream));
     }
 
-    void SendSensorValue(const TSensorSource& source, const TSensorValue& value, const TActorContext& context) {
+    template <typename ValueType>
+    void SendSensorValue(const TSensorSource& source, const ValueType& value, const TActorContext& context) {
         if (source.Updated >= LastReportTime && value.Value.IsValid()) {
             SendSensorValue(context, source.Name, value.Name, value.Value);
         }
     }
 
-    template <size_t Count>
+    /*template <size_t Count>
     void SendSensors(const TSensor<Count>& sensor, const TActorContext& context) {
         for (const TSensorValue& value : sensor.Values) {
             SendSensorValue(sensor, value, context);
         }
-    }
+    }*/
 
     void SendSensorValues(const TActorContext&, const TSensorSource&) {}
 
@@ -398,7 +510,7 @@ public:
         //    SendSensorValue(event->Source, event->Value, context);
         //}
         if (Env::HaveConsole && Env::DumpSensorData) {
-            context.Send(this, &Console, new TEventData(StringStream() << "DATA " << event->Source.Name << '.' << event->Value.Name << ' ' << event->Value.Value));
+            context.Send(this, &Console, new TEventData(StringStream() << "DATA " << event->Source.Name << '.' << event->Name << ' ' << event->Value));
         }
         OnSensorData(Move(event), context);
     }
@@ -459,7 +571,7 @@ public:
     SensorType* DetectSensor(uint8_t address) {
         StringBuf type = SensorType::GetSensorType(address);
         if (!type.empty()) {
-            String name = StringStream() << type << '@' << String(address,16);
+            String name = StringStream() << type << '-' << String(address,16);
             SensorType* sensor = new SensorType(address, this, name);
             if (Env::HaveConsole) {
                 ActorLib->Send(&Console, new TEventData(StringStream() << "Found " << name));

@@ -356,9 +356,9 @@ void RTC_Handler() {
     AW::Reset("RTC");
 }
 
-void EIC_Handler() {
+/*void EIC_Handler() {
     AW::Reset("EIC");
-}
+}*/
 
 void NVMCTRL_Handler() {
     AW::Reset("NVMCTRL");

@@ -139,8 +139,8 @@ public:
     uint16_t ChipId = 0;
     uint16_t ConfigValue;
     TActor* Owner;
-    TAveragedSensorValue<60000 / Env::SensorsPeriod.MilliSeconds()> Voltage;
-    TAveragedSensorValue<60000 / Env::SensorsPeriod.MilliSeconds()> Current;
+    TAveragedSensorValue<fixed3_t, 60000 / Env::SensorsPeriod.MilliSeconds()> Voltage;
+    TAveragedSensorValue<fixed3_t, 60000 / Env::SensorsPeriod.MilliSeconds()> Current;
 
     TSensorINA2xx(uint8_t address, TActor* owner, String name = "INA2xx")
         : Address(address)
@@ -194,6 +194,7 @@ protected:
 
         switch (ChipId) {
             case 0xb40a: // ? have this value in my INA-219
+            case 0xba12: // ? have this value in my INA-219
                 ChipId = 0x2190;
                 break;
         }
@@ -233,7 +234,7 @@ protected:
                     context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "INA226 on " << String(Address, 16)));
                     break;
                 default:
-                    context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "INA??? on " << String(Address, 16)));
+                    context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "INA 0x" << String(ChipId, 16) << " on " << String(Address, 16)));
                     break;
                 }
             }
@@ -251,10 +252,6 @@ protected:
             context.Resend(this, event.Release());
             Env::Wire::WriteValue(Address, ERegisters::INA2xx_REG_CONFIG, ConfigValue);
             return;
-        }
-        ulong start;
-        if (Env::Diagnostics) {
-            start = micros();
         }
         Stage = EStage::Shot;
         event->NotBefore = context.Now + Env::SensorsPeriod - GetShotPeriod();
@@ -387,9 +384,6 @@ protected:
         if (Env::SensorsSendValues) {
             context.Send(this, Owner, new AW::TEventSensorData(*this, Voltage));
             context.Send(this, Owner, new AW::TEventSensorData(*this, Current));
-        }
-        if (Env::Diagnostics) {
-            context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "receive elapsed " << (micros() - start) << "us"));
         }
     }
 

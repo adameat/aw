@@ -14,6 +14,11 @@ StringPointer::StringPointer(const char* ptr)
     , length(static_cast<size_type>(strlen(ptr)))
 {}
 
+StringPointer::StringPointer()
+    : begin(nullptr)
+    , length(0)
+{}
+
 StringBuf::StringBuf(const char* ptr)
     : Begin(ptr)
     , End(ptr + static_cast<size_type>(strlen(ptr)))
@@ -275,6 +280,38 @@ String::String(double value, unsigned char decimalPlaces)
     : String()
 {
     *this = StringPointer(dtostrf(value, (decimalPlaces + 2), decimalPlaces, ConversionBuffer));
+}
+
+String::String(fixed3_t value)
+    : String()
+{
+    char tmp[33];
+    char* pcon = ConversionBuffer;
+    long val = value.raw();
+    if (val < 0) {
+        val = -val;
+        *pcon = '-';
+        ++pcon;
+    }
+    char* ptmp = tmp;
+    do {
+        *ptmp = '0' + (val % 10);
+        val /= 10;
+        ++ptmp;
+        if (ptmp - tmp == 3) {
+            *ptmp = '.';
+            ++ptmp;
+        }
+    } while (val != 0 || (ptmp - tmp < 5));
+    while (ptmp != tmp) {
+        --ptmp;
+        *pcon = *ptmp;
+        ++pcon;
+    }
+    StringPointer ptr;
+    ptr.begin = ConversionBuffer;
+    ptr.length = pcon - ConversionBuffer;
+    *this = ptr;
 }
 
 String::String(const String& string)

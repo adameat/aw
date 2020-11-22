@@ -3,11 +3,14 @@
 
 namespace AW {
 
+#include "aw-fixed.h"
+
 struct StringPointer {
     using size_type = unsigned int;
     static constexpr size_type npos = ~(size_type)0;
 
     StringPointer(const char* ptr);
+    StringPointer();
 
     const char* begin;
     size_type length;
@@ -157,6 +160,7 @@ public:
     String(long value, unsigned char base = 10);
     String(float value, unsigned char decimalPlaces = 3);
     String(double value, unsigned char decimalPlaces = 3);
+    String(fixed3_t value);
     String(const String& string);
     String(String&& string);
 
@@ -287,6 +291,11 @@ public:
     }
 
     StringStream& operator <<(double string) {
+        Data += String(string);
+        return *this;
+    }
+
+    StringStream& operator <<(fixed3_t string) {
         Data += String(string);
         return *this;
     }

@@ -191,9 +191,9 @@ public:
     uint8_t Address = 0x77;
     EChips ChipID = EChips::Unknown;
     TActor* Owner;
-    TSensorValue Temperature;
-    TSensorValue Pressure;
-    TSensorValue Humidity;
+    TSensorValueFixed3 Temperature;
+    TSensorValueFixed3 Pressure;
+    TSensorValueFixed3 Humidity;
     //static constexpr TSensorValue TSensor::* Values[] = { &TSensor::Temperature, &TSensor::Pressure, &TSensor::Humidity };
 
     TSensorBMx280(uint8_t address, TActor* owner, String name = "BMx280")
@@ -221,6 +221,7 @@ public:
 
 protected:
     CalibData Calib;
+    TTime CalibRead;
 
     static constexpr sensor_sampling tempSampling = SAMPLING_X4;
     static constexpr sensor_sampling pressSampling = SAMPLING_X4;
@@ -352,15 +353,18 @@ protected:
     }
 
     void OnReceive(AW::TUniquePtr<AW::TEventReceive> event, const AW::TActorContext& context) {
-        ulong start;
-        if (Env::Diagnostics) {
-            start = micros();
-        }
+        // ulong start;
+        // if (Env::Diagnostics) {
+        //     start = micros();
+        // }
         uint8_t status;
         if (Env::Wire::ReadValue(Address, ERegisters::REGISTER_STATUS, status)) {
             if ((status & 1) == 0) {
                 Updated = context.Now;
-                ReadCoefficients(Calib);
+                if (!CalibRead.IsValid() || context.Now - CalibRead > TTime::Seconds(600)) {
+                    ReadCoefficients(Calib);
+                    CalibRead = context.Now;
+                }
                 int32_t t_fine = 0;
                 uint24_t temp;
                 if (Env::Wire::ReadValueLE(Address, ERegisters::REGISTER_TEMPDATA, temp) && temp != 0x800000) {
@@ -435,7 +439,7 @@ protected:
                         v_x1_u32r = (v_x1_u32r < 0) ? 0 : v_x1_u32r;
                         v_x1_u32r = (v_x1_u32r > 419430400) ? 419430400 : v_x1_u32r;
                         float h = (v_x1_u32r >> 12);
-                        Humidity = h / 1024.0;
+                        Humidity = h / 1024;
                         if (Env::SensorsSendValues) {
                             context.Send(this, Owner, new AW::TEventSensorData(*this, Humidity));
                         }
@@ -449,9 +453,9 @@ protected:
         event->NotBefore = context.Now + Env::SensorsPeriod;
         context.Resend(this, event.Release());
 
-        if (Env::Diagnostics) {
-            context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "receive elapsed " << (micros() - start) << "us"));
-        }
+        // if (Env::Diagnostics) {
+        //     context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "receive elapsed " << (micros() - start) << "us"));
+        // }
     }
 };
 
