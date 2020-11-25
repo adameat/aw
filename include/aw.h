@@ -1,6 +1,6 @@
 #pragma once
 
-//#define _DEBUG
+#define _DEBUG
 
 #ifdef _DEBUG
 //#define _DEBUG_HANG_ON_RESET
