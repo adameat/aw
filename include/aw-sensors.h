@@ -263,9 +263,9 @@ class TSensorActor : public TActor, public TConsoleActor<Env> {
 public:
     using TConsoleActor<Env>::Console;
     TSyncSerialActor<THardwareSerial<Serial1, Env::BluetoothBaudRate>> Channel;
-    TDigitalPin PowerBluetooth;
-    TDigitalPin PowerI2C;
-    TDigitalPin SleepLED;
+    TDigitalPin<Env::PIN_POWER_BLUETOOTH> PowerBluetooth;
+    TDigitalPin<Env::PIN_POWER_I2C> PowerI2C;
+    TDigitalPin<Env::PIN_LED_SLEEP> SleepLED;
     TLed Led;
     bool Feed = false;
     static constexpr TTime DefaultPeriod = Env::DefaultPeriod;
@@ -282,9 +282,6 @@ public:
     TSensorActor()
         : TConsoleActor<Env>(this)
         , Channel(this)
-        , PowerBluetooth(8)
-        , PowerI2C(9)
-        , SleepLED(7)
         , ActorLib(nullptr)
     {
         TimeSource.Name = "time";
@@ -392,7 +389,7 @@ public:
         context.ActorLib.Register(&Channel);
         //context.ActorLib.Register(&Bluetooth);
         if (Env::HaveConsole) {
-            context.Send(this, &Console, new TEventData("\nhi"));
+            context.Send(this, &Console, new TEventData(StringStream() << "\nhi\n" << Env::PIN_POWER_BLUETOOTH));
         } else {
             //context.Send(this, &Channel, new TEventData("hi"));
         }

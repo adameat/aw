@@ -315,6 +315,7 @@ public:
 };
 #endif
 
+template <uint8_t PIN>
 class TPin {
 public:
 #ifdef ARDUINO_ARCH_STM32F1
@@ -322,41 +323,58 @@ public:
 #else
     using ModeType = uint8_t;
 #endif
-    TPin(uint8_t p, ModeType mode = OUTPUT)
-        : P(p)
+    TPin(ModeType mode = OUTPUT)
     {
-        pinMode(P, mode);
+        pinMode(PIN, mode);
     }
 
     void SetMode(ModeType mode) {
-        pinMode(P, mode);
+        pinMode(PIN, mode);
     }
 
     uint8_t GetPin() const {
-        return P;
+        return PIN;
     }
-
-protected:
-    uint8_t P;
 };
 
-class TAnalogPin : public TPin {
+template <>
+class TPin<0> {
 public:
-    TAnalogPin(uint8_t p, ModeType mode = OUTPUT)
-        : TPin(p, mode)
+#ifdef ARDUINO_ARCH_STM32F1
+    using ModeType = WiringPinMode;
+#else
+    using ModeType = uint8_t;
+#endif
+    TPin(ModeType mode = OUTPUT)
+    {}
+
+    void SetMode(ModeType mode) {}
+
+    uint8_t GetPin() const {
+        return 0;
+    }
+};
+
+template <uint8_t PIN>
+class TAnalogPin : public TPin<PIN> {
+public:
+    using ModeType = typename TPin<PIN>::ModeType;
+
+    TAnalogPin(ModeType mode = OUTPUT)
+        : TPin<PIN>(mode)
     {}
 
     TAnalogPin& operator =(uint16_t value) {
-        analogWrite(P, value);
+        analogWrite(PIN, value);
         return *this;
     }
 
     operator uint16_t() const {
-        return analogRead(P);
+        return analogRead(PIN);
     }
 
     float GetValue() {
-        uint16_t value = analogRead(P);
+        uint16_t value = analogRead(PIN);
         return (float)value / (ArduinoSettings::GetReadResolution() - 1);
     }
 
@@ -377,21 +395,23 @@ public:
     }
 };
 
-class TPWMPin : public TPin {
+template <uint8_t PIN>
+class TPWMPin : public TPin<PIN> {
 public:
+    using ModeType = typename TPin<PIN>::ModeType;
 #ifdef ARDUINO_ARCH_STM32F1
-    TPWMPin(uint8_t p, ModeType mode = PWM)
+    TPWMPin(ModeType mode = PWM)
 #else
-    TPWMPin(uint8_t p, ModeType mode = OUTPUT)
+    TPWMPin(ModeType mode = OUTPUT)
 #endif
-        : TPin(p, mode)
+        : TPin<PIN>(mode)
     {}
 
     TPWMPin& operator =(uint16_t value) {
 #ifdef ARDUINO_ARCH_STM32F1
-        pwmWrite(P, value);
+        pwmWrite(PIN, value);
 #else
-        analogWrite(P, value);
+        analogWrite(PIN, value);
 #endif
         return *this;
     }
@@ -399,44 +419,68 @@ public:
     void SetValue(float value) {
         uint16_t v = uint16_t(value * (ArduinoSettings::GetWriteResolution() - 1));
 #ifdef ARDUINO_ARCH_STM32F1
-        pwmWrite(P, v);
+        pwmWrite(PIN, v);
 #else
-        analogWrite(P, v);
+        analogWrite(PIN, v);
 #endif
     }
 };
 
-class TDigitalPin : public TPin {
+template <uint8_t PIN>
+class TDigitalPin : public TPin<PIN> {
 public:
-    TDigitalPin(uint8_t p, ModeType mode = OUTPUT)
-        : TPin(p, mode)
+    using ModeType = typename TPin<PIN>::ModeType;
+
+    TDigitalPin(ModeType mode = OUTPUT)
+        : TPin<PIN>(mode)
     {}
 
     TDigitalPin& operator =(bool state) {
-        digitalWrite(P, state ? HIGH : LOW);
+        digitalWrite(PIN, state ? HIGH : LOW);
         return *this;
     }
 
     operator bool() const {
-        return digitalRead(P) == HIGH;
+        return digitalRead(PIN) == HIGH;
     }
 
     unsigned long PulseIn(uint8_t mode = HIGH) {
-        return pulseIn(P, mode);
+        return pulseIn(PIN, mode);
     }
 };
 
-class TLed : public TDigitalPin {
+template <>
+class TDigitalPin<0> : public TPin<0> {
+public:
+    using ModeType = typename TPin<0>::ModeType;
+
+    TDigitalPin(ModeType mode = OUTPUT)
+        : TPin<0>(mode)
+    {}
+
+    TDigitalPin& operator =(bool state) {
+        return *this;
+    }
+
+    operator bool() const {
+        return false;
+    }
+
+    unsigned long PulseIn(uint8_t mode = HIGH) {
+        return 0;
+    }
+};
+
+class TLed : public TPin<LED_BUILTIN> {
 public:
     TLed()
-        : TDigitalPin(LED_BUILTIN)
     {}
 
     TLed& operator =(bool state) {
 #ifdef ARDUINO_ARCH_STM32F1
-        digitalWrite(P, state ? LOW : HIGH);
+        digitalWrite(LED_BUILTIN, state ? LOW : HIGH);
 #else
-        digitalWrite(P, state ? HIGH : LOW);
+        digitalWrite(LED_BUILTIN, state ? HIGH : LOW);
 #endif
         return *this;
     }
@@ -702,6 +746,11 @@ struct TDefaultEnvironment {
 
     static constexpr int BluetoothBaudRate = 9600;
     static constexpr int AverageSensorWindow = 60;
+
+    // pins
+    static constexpr uint8_t PIN_POWER_BLUETOOTH = 8;
+    static constexpr uint8_t PIN_POWER_I2C = 0; // 9
+    static constexpr uint8_t PIN_LED_SLEEP = 0; // 7
 
 #if defined(ARDUINO_ARCH_STM32F1)
     using ConsoleActor = TSyncSerialActor<TUSBSerial<Serial, 9600>>;

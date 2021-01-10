@@ -20,11 +20,10 @@ struct TEventLedBlink : TBasicEvent<TEventLedBlink> {
 
 class TLedActor : public TActor {
 protected:
-    TPin LedPin;
+    TDigitalPin<LED_BUILTIN> LedPin;
     bool Led = false;
 
     TLedActor()
-        : LedPin(LED_BUILTIN)
     {}
 
     void OnEvent(TEventPtr event, const TActorContext& context) override {

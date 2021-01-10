@@ -38,6 +38,17 @@ protected:
         }
     }
 
+    void Dump(const char (&data)[9], const TActorContext& context) {
+        StringStream stream;
+        for (size_t i = 0; i < 9; ++i) {
+            if (i != 0) {
+                stream << ':';
+            }
+            stream << String(int(data[i]), 16);
+        }
+        context.Send(this, Owner, new AW::TEventSensorMessage(*this, stream));
+    }
+
     void OnBootstrap(TUniquePtr<TEventBootstrap>, const TActorContext& context) {
         Serial.Begin();
         char request[9] = {0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79};
@@ -48,10 +59,17 @@ protected:
         Serial.Write(request, 9);
         int sz = Serial.Read(response, 9);
         if (sz == 9) {
+            if (Env::Diagnostics) {
+                Dump(response, context);
+            }
             char request[9] = {0xFF, 0x01, 0x79, 0x00, 0x00, 0x00, 0x00, 0x00, 0x86}; // disable ABC
             Serial.Write(request, 9);
-            context.Send(this, this, new AW::TEventReceive());
+        } else {
+            if (Env::Diagnostics) {
+                context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "not found"));
+            }
         }
+        context.Send(this, this, new AW::TEventReceive());
         Calibrations = 0;
     }
 
@@ -94,7 +112,7 @@ protected:
             Updated = context.Now;
 
             if (Env::Diagnostics) {
-                context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "received response"));
+                Dump(response, context);
             }
         } else {
             if (Env::Diagnostics) {
