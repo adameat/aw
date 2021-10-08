@@ -16,6 +16,7 @@ public:
     TSensorValueFloat Temperature;
     TSensorValueULong Calibrations;
     TTime LastCO2Seen;
+    bool Good = false;
 
     TSensorMHZ19(TActor* owner, String name = "mhz19")
         : Owner(owner)
@@ -51,24 +52,6 @@ protected:
 
     void OnBootstrap(TUniquePtr<TEventBootstrap>, const TActorContext& context) {
         Serial.Begin();
-        char request[9] = {0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79};
-        char response[9] = {};
-        while (Serial.AvailableForRead()) {
-            Serial.Read(response, 1);
-        }
-        Serial.Write(request, 9);
-        int sz = Serial.Read(response, 9);
-        if (sz == 9) {
-            if (Env::Diagnostics) {
-                Dump(response, context);
-            }
-            char request[9] = {0xFF, 0x01, 0x79, 0x00, 0x00, 0x00, 0x00, 0x00, 0x86}; // disable ABC
-            Serial.Write(request, 9);
-        } else {
-            if (Env::Diagnostics) {
-                context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "not found"));
-            }
-        }
         context.Send(this, this, new AW::TEventReceive());
         Calibrations = 0;
     }
@@ -114,10 +97,20 @@ protected:
             if (Env::Diagnostics) {
                 Dump(response, context);
             }
+
+            if (!Good) {
+                if (Env::Diagnostics) {
+                    context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "disable ABC"));
+                }
+                char request[9] = {0xFF, 0x01, 0x79, 0x00, 0x00, 0x00, 0x00, 0x00, 0x86}; // disable ABC
+                Serial.Write(request, 9);
+                Good = true;
+            }
         } else {
             if (Env::Diagnostics) {
-                context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "received BAD response"));
+                context.Send(this, Owner, new AW::TEventSensorMessage(*this, StringStream() << "received BAD response (" << sz << " bytes)"));
             }
+            Good = false;
         }
     }
 };

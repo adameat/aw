@@ -165,6 +165,10 @@ struct TSensorValue {
         Value = value;
     }
 
+    typename ValueType::TUnderlyingType GetValue() const {
+        return Value;
+    }
+
     void Clear() {
         Value.Clear();
     }
@@ -389,7 +393,7 @@ public:
         context.ActorLib.Register(&Channel);
         //context.ActorLib.Register(&Bluetooth);
         if (Env::HaveConsole) {
-            context.Send(this, &Console, new TEventData(StringStream() << "\nhi\n" << Env::PIN_POWER_BLUETOOTH));
+            context.Send(this, &Console, new TEventData(StringStream() << "\nhi"));
         } else {
             //context.Send(this, &Channel, new TEventData("hi"));
         }

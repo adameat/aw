@@ -4,30 +4,26 @@
 
 namespace AW {
 
-template <typename Env = TDefaultEnvironment>
-class TSensorInterruptCounter : public TActor {
+template <uint8_t Pin, typename Env = TDefaultEnvironment>
+class TSensorInterruptCounter : public TActor, public TSensorSource {
 public:
     TActor* Owner;
-    TSensor<1> Sensor;
+    TSensorValueULong Sensor;
     /*volatile */uint32_t Value = 0;
 
-    enum ESensor {
-        Counter,
-    };
-    
-    TSensorInterruptCounter(uint8_t pin, TActor* owner, StringBuf name = "counter")
+    TSensorInterruptCounter(TActor* owner, StringBuf name = "counter")
         : Owner(owner)
-        , PinValue(pin, INPUT_PULLUP)
+        , PinValue(INPUT_PULLUP)
     {
-        Sensor.Name = name;
-        Sensor.Values[ESensor::Counter].Name = "counter";
+        Name = name;
+        Sensor.Name = "counter";
 
     }
 
 protected:
     static constexpr TTime MinDelayLow = TTime::MilliSeconds(500);
     static constexpr TTime MinDelayHigh = TTime::MilliSeconds(500);
-    TDigitalPin PinValue;
+    TDigitalPin<Pin> PinValue;
     /*volatile */bool LastValue;
     /*volatile */TTime LastTime;
     /*volatile */TTime Low;
@@ -51,11 +47,11 @@ protected:
     }
 
     void OnReceive(TUniquePtr<TEventReceive> event, const TActorContext& context) {
-        if (Value != Sensor.Values[ESensor::Counter].Value.GetValue()) {
-            Sensor.Values[ESensor::Counter].Value.SetValue(Value);
-            Sensor.Updated = context.Now;
+        if (Value != Sensor.GetValue()) {
+            Sensor.SetValue(Value);
+            Updated = context.Now;
             if (Env::SensorsSendValues) {
-                context.Send(this, Owner, new TEventSensorData(Sensor, Sensor.Values[ESensor::Counter]));
+                context.Send(this, Owner, new TEventSensorData(*this, Sensor));
             }
         }
         event->NotBefore = context.Now + Env::SensorsPeriod;
@@ -96,30 +92,26 @@ protected:
     }
 };
 
-template <typename Env = TDefaultEnvironment>
-class TSensorPollingCounter : public TActor {
+template <uint8_t Pin, typename Env = TDefaultEnvironment>
+class TSensorPollingCounter : public TActor, public TSensorSource {
 public:
     TActor * Owner;
-    TSensor<1> Sensor;
+    TSensorValueULong Sensor;
     uint32_t Value = 0;
 
-    enum ESensor {
-        Counter,
-    };
-
-    TSensorPollingCounter(uint8_t pin, TActor* owner, StringBuf name = "counter")
+    TSensorPollingCounter(TActor* owner, StringBuf name = "counter")
         : Owner(owner)
-        , PinValue(pin, INPUT_PULLUP) {
-        Sensor.Name = name;
-        Sensor.Values[ESensor::Counter].Name = "counter";
-
+        , PinValue(INPUT_PULLUP)
+    {
+        Name = name;
+        Sensor.Name = "counter";
     }
 
 protected:
     static constexpr TTime MinDelayLow = TTime::MilliSeconds(500);
     static constexpr TTime MinDelayHigh = TTime::MilliSeconds(500);
     static constexpr TTime Resolution = TTime::MilliSeconds(50);
-    TDigitalPin PinValue;
+    TDigitalPin<Pin> PinValue;
     bool LastValue;
     TTime LastTime;
     TTime Low;
@@ -167,11 +159,11 @@ protected:
             LastTime = now;
             LastValue = value;
         }
-        if (Value != Sensor.Values[ESensor::Counter].Value.GetValue()) {
-            Sensor.Values[ESensor::Counter].Value.SetValue(Value);
-            Sensor.Updated = context.Now;
+        if (Value != Sensor.GetValue()) {
+            Sensor.SetValue(Value);
+            Updated = context.Now;
             if (Env::SensorsSendValues) {
-                context.Send(this, Owner, new TEventSensorData(Sensor, Sensor.Values[ESensor::Counter]));
+                context.Send(this, Owner, new TEventSensorData(*this, Sensor));
             }
         }
         event->NotBefore = context.Now + Resolution;

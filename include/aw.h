@@ -1,6 +1,6 @@
 #pragma once
 
-#define _DEBUG
+//#define _DEBUG
 
 #ifdef _DEBUG
 //#define _DEBUG_HANG_ON_RESET
@@ -722,6 +722,7 @@ struct TEventWakeUp : TBasicEvent<TEventWakeUp> {
 #include "aw-memory.h"
 #include "aw-serial.h"
 #include "aw-fixed.h"
+#include "aw-tone.h"
 
 namespace AW {
 
